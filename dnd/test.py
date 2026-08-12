@@ -61,11 +61,11 @@ while True:
     if num_hab == 0:
         print("¡Has ganado!")
         break
-    elif personaje_hp <= 0:
+    elif jugador.hp <= 0:
         print("Has muerto")
         break
     
-    habitacion = random.randint(1, 3)
+    habitacion = random.randint(1, 2)
     if habitacion == 1:  # Combate
         enemigo = random.choice(list(enemigos.keys()))
         stats = enemigos[enemigo]
@@ -76,30 +76,30 @@ while True:
         enemigo_exp = stats["exp"]
         print("Encontraste un " + enemigo)
         
-        while enemigo_hp > 0 and personaje_hp > 0:
+        while enemigo_hp > 0 and jugador.hp > 0:
             # Ataque del enemigo
             enemigo_dano = random.randint(enemigo_ataque[0], enemigo_ataque[1])
-            dano_reduc = (objetos["armas"][personaje_arma]["defensa"] + personaje_destreza) / 10
+            dano_reduc = (objetos["armas"][jugador.arma]["defensa"] + jugador.destreza) / 10
             dano_total = math.ceil(max(1, enemigo_dano * (1 - dano_reduc)))
-            personaje_hp -= dano_total
+            jugador.hp -= dano_total
             print(f"El {enemigo} te ha atacado y te ha restado {dano_total} puntos de vida")
-            print(f"Tus puntos de vida son {personaje_hp}")
+            print(f"Tus puntos de vida son {jugador.hp}")
             
-            if personaje_hp <= 0:
+            if jugador.hp <= 0:
                 break
                 
             # Ataque del jugador
-            min_dano, max_dano = objetos["armas"][personaje_arma]["ataque"]
-            dano = random.randint(min_dano, max_dano) + personaje_fuerza
+            min_dano, max_dano = objetos["armas"][jugador.arma]["ataque"]
+            dano = random.randint(min_dano, max_dano) + jugador.fuerza
             enemigo_hp -= dano
             print(f"Atacaste al {enemigo} y le has restado {dano} puntos de vida")
             print(f"Los puntos de vida del enemigo son {enemigo_hp}")
             
             if enemigo_hp <= 0:
                 print(f"Has derrotado al {enemigo}")
-                personaje_exp += enemigo_exp
+                jugador.exp += enemigo_exp
                 oro_ganado = random.randint(enemigo_oro[0], enemigo_oro[1])
-                personaje_oro += oro_ganado
+                jugador.oro += oro_ganado
                 print(f"Has ganado {oro_ganado} oro y {enemigo_exp} exp")
                 input("Presiona enter para continuar")
                 
@@ -109,34 +109,34 @@ while True:
             pocion = random.choice(list(objetos["pociones"].keys()))
             print(f"Has encontrado una {pocion}")
             min_salud, max_salud = objetos["pociones"][pocion]["salud"]
-            salud_recuperada = random.randint(min_salud, max_salud)
-            personaje_hp = min(salud_maxima, personaje_hp + salud_recuperada)
+            cantidad_curar = random.randint(min_salud, max_salud)
+            salud_recuperada = jugador.curar(cantidad_curar)
             print(f"Has recuperado {salud_recuperada} puntos de vida")
         else:  # 30% probabilidad de arma
             nueva_arma = random.choice(list(objetos["armas"].keys()))
             print(f"Has encontrado {nueva_arma}")
             if input("¿Deseas conservar el arma? (s/n) ").lower() == 's':
-                personaje_arma = nueva_arma
+                jugador.arma = nueva_arma
                 print(f"Has equipado {nueva_arma}")
             else:
                 print(f"Has descartado {nueva_arma}")
                 input("Presiona enter para continuar")
     
     # Subida de nivel
-    while (personaje_level + 1) in exp_level and personaje_exp >= exp_level[personaje_level]["exp"]:
-        personaje_level += 1
-        stats_ganados = exp_level[personaje_level]["stats"]
-        personaje_fuerza += stats_ganados
-        personaje_destreza += stats_ganados
-        personaje_constitucion += stats_ganados
-        personaje_hp = personaje_hp + ((1 + stats_ganados) * personaje_constitucion)
-        salud_maxima = salud_maxima + ((1 + stats_ganados) * personaje_constitucion)
-        print(f"\n¡Has subido al nivel {personaje_level}!")
-        print(f"Tus stats son: Fuerza {personaje_fuerza}, Destreza {personaje_destreza}, Constitución {personaje_constitucion}")
-        print(f"Tu salud actual es {personaje_hp}")
+    while (jugador.nivel + 1) in exp_level and jugador.exp >= exp_level[jugador.nivel]["exp"]:
+        jugador.nivel += 1
+        stats_ganados = exp_level[jugador.nivel]["stats"]
+        jugador.fuerza += stats_ganados
+        jugador.destreza += stats_ganados
+        jugador.constitucion += stats_ganados
+        jugador.hp = jugador.hp + ((1 + stats_ganados) * jugador.constitucion)
+        jugador.salud_maxima = jugador.salud_maxima + ((1 + stats_ganados) * jugador.constitucion)
+        print(f"\n¡Has subido al nivel {jugador.nivel}!")
+        print(f"Tus stats son: Fuerza {jugador.fuerza}, Destreza {jugador.destreza}, Constitución {jugador.constitucion}")
+        print(f"Tu salud actual es {jugador.hp}")
         input("Presiona enter para continuar")
     
     num_hab -= 1
-    if num_hab > 0 and personaje_hp > 0:
+    if num_hab > 0 and jugador.hp > 0:
         print(f"\nQuedan {num_hab} habitaciones")
         print("Caminando por el pasillo encuentras la siguiente habitación...")

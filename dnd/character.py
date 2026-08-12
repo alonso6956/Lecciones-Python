@@ -13,3 +13,8 @@ class Personaje:
         self.nivel = 1
         self.oro = 0
         self.exp = 0
+
+    def curar(self, cantidad):
+        salud_anterior = self.hp
+        self.hp = min(self.salud_maxima, self.hp + cantidad)
+        return self.hp - salud_anterior
