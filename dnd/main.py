@@ -2,6 +2,7 @@ import random
 import math
 from items import objetos
 from enemies import enemigos
+from character import Personaje
 
 # --- Inicialización ---
 personaje = input("¿Cómo te llamas? ")
