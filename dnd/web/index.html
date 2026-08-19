@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dungeon</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+  <main class="shell">
+    <header class="brand">
+      <div>
+        <p class="eyebrow">CRÓNICAS DEL CALABOZO</p>
+        <h1>Dungeon</h1>
+      </div>
+      <div id="roomBadge" class="room-badge hidden">
+        Habitación <strong id="room">0/50</strong>
+      </div>
+    </header>
+
+    <section id="start" class="start card">
+      <p class="kicker">Prepara tu expedición</p>
+      <h2>Crea tu aventurero</h2>
+      <label for="name">Nombre</label>
+      <input
+        id="name"
+        maxlength="30"
+        placeholder="¿Cómo te llamas?"
+        autocomplete="off"
+      >
+      <p class="label">Arma inicial</p>
+      <div id="weapons" class="weapon-grid"></div>
+      <button id="startButton" class="primary wide">
+        Entrar al calabozo
+      </button>
+    </section>
+
+    <section id="game" class="game hidden">
+      <div class="hud card">
+        <div class="identity">
+          <div class="avatar">⚔</div>
+          <div>
+            <span id="playerName">—</span>
+            <small id="weaponName">—</small>
+          </div>
+        </div>
+
+        <div class="vital">
+          <div>
+            <span>VIDA</span>
+            <strong id="hpText">0/0</strong>
+          </div>
+          <div class="bar">
+            <i id="hpBar"></i>
+          </div>
+        </div>
+
+        <div class="vital energy">
+          <div>
+            <span>ENERGÍA</span>
+            <strong id="energyText">0/3</strong>
+          </div>
+          <div id="energyPips" class="pips"></div>
+        </div>
+
+        <div class="resource">
+          <span>NIVEL</span>
+          <strong id="level">1</strong>
+        </div>
+        <div class="resource">
+          <span>EXP</span>
+          <strong id="exp">0</strong>
+        </div>
+        <div class="resource gold">
+          <span>ORO</span>
+          <strong id="gold">0</strong>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <section class="encounter card">
+          <p id="phaseLabel" class="kicker">ENCUENTRO</p>
+          <h2 id="encounterTitle">Explorando…</h2>
+          <p id="intent" class="intent"></p>
+          <div id="enemyHealth" class="enemy-health hidden">
+            <div>
+              <span>VIDA DEL ENEMIGO</span>
+              <strong id="enemyHpText"></strong>
+            </div>
+            <div class="bar enemy">
+              <i id="enemyHpBar"></i>
+            </div>
+          </div>
+          <div id="actions" class="actions"></div>
+          <p id="error" class="error"></p>
+        </section>
+
+        <aside class="sheet card">
+          <p class="kicker">PERSONAJE</p>
+          <div class="stats">
+            <div>
+              <span>Fuerza</span>
+              <strong id="strength">1</strong>
+            </div>
+            <div>
+              <span>Destreza</span>
+              <strong id="dexterity">1</strong>
+            </div>
+            <div>
+              <span>Constitución</span>
+              <strong id="constitution">1</strong>
+            </div>
+            <div>
+              <span>Defensa</span>
+              <strong id="defense">0</strong>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <p class="kicker">ÚLTIMOS EVENTOS</p>
+          <div id="log" class="log"></div>
+        </aside>
+      </div>
+    </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

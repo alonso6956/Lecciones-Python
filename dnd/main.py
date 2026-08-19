@@ -1,6 +1,6 @@
 import random
 import math
-from items import objetos
+from items import calcular_defensa, objetos
 from enemies import enemigos
 from character import Personaje
 
@@ -93,7 +93,13 @@ while True:
         while enemigo_hp > 0 and personaje_hp > 0:
             # Ataque del enemigo
             enemigo_dano = random.randint(enemigo_ataque[0], enemigo_ataque[1])
-            dano_reduc = (objetos["armas"][personaje_arma]["defensa"] + personaje_destreza) / 10
+            defensa = calcular_defensa(
+                personaje_arma,
+                personaje_fuerza,
+                personaje_destreza,
+                personaje_constitucion,
+            )
+            dano_reduc = defensa / 10
             dano_total = math.ceil(max(1, enemigo_dano * (1 - dano_reduc)))
             personaje_hp -= dano_total
             print(f"El {enemigo} te ha atacado y te ha restado {dano_total} puntos de vida")
