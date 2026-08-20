@@ -18,7 +18,18 @@
       </div>
     </header>
 
-    <section id="start" class="start card">
+    <section id="menu" class="start menu card">
+      <p class="kicker">MENÚ PRINCIPAL</p>
+      <h2>Dungeon</h2>
+      <div class="menu-actions">
+        <button id="newButton" class="primary wide">Nueva partida</button>
+        <button id="loadButton" class="wide">Cargar partida</button>
+        <button id="exitButton" class="wide">Salir</button>
+      </div>
+      <p id="menuMessage" class="menu-message"></p>
+    </section>
+
+    <section id="start" class="start card hidden">
       <p class="kicker">Prepara tu expedición</p>
       <h2>Crea tu aventurero</h2>
       <label for="name">Nombre</label>
@@ -113,6 +124,18 @@
             <div>
               <span>Defensa</span>
               <strong id="defense">0</strong>
+            </div>
+            <div>
+              <span>Ataque</span>
+              <strong id="attack">0–0</strong>
+            </div>
+            <div>
+              <span>Velocidad</span>
+              <strong id="speed">10</strong>
+            </div>
+            <div>
+              <span>Evasión</span>
+              <strong id="evasion">5%</strong>
             </div>
           </div>
           <div class="divider"></div>

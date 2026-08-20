@@ -6,15 +6,25 @@ let estado = null;
 
 
 async function llamarApi(ruta, datos = {}) {
-  const respuesta = await fetch(`/api/${ruta}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(datos),
-  });
-  const resultado = await respuesta.json();
+  let respuesta;
+  let resultado;
+  try {
+    respuesta = await fetch(`/api/${ruta}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(datos),
+    });
+    resultado = await respuesta.json();
+  } catch {
+    const mensaje = "Se perdió la conexión con Dungeon. Reinicia la aplicación.";
+    elemento("error").textContent = mensaje;
+    elemento("menuMessage").textContent = mensaje;
+    return;
+  }
 
   if (!respuesta.ok) {
     elemento("error").textContent = resultado.error;
+    elemento("menuMessage").textContent = resultado.error;
     estado = resultado.estado;
     renderizar();
     return;
@@ -22,6 +32,7 @@ async function llamarApi(ruta, datos = {}) {
 
   estado = resultado;
   elemento("error").textContent = "";
+  elemento("menuMessage").textContent = "";
   renderizar();
 }
 
@@ -31,6 +42,12 @@ function crearBoton(texto, manejador, opciones = {}) {
   boton.textContent = texto;
   boton.onclick = manejador;
   boton.disabled = opciones.deshabilitado || false;
+
+  if (opciones.tooltip) {
+    boton.title = opciones.tooltip;
+    boton.dataset.tooltip = opciones.tooltip;
+    boton.setAttribute("aria-label", `${texto}. ${opciones.tooltip}`);
+  }
 
   if (opciones.primario) {
     boton.classList.add("primary");
@@ -72,7 +89,7 @@ function renderizarInicio() {
           <h3>${arma.nombre}</h3>
           <p>
             Daño <b>${arma.ataque[0]}–${arma.ataque[1]}</b>
-            · Defensa <b>${arma.descripcion_defensa}</b>
+            · Defensa fija <b>${arma.defensa}</b>
           </p>
           <p>${arma.tecnica}: ${arma.descripcion_tecnica}</p>
         </article>
@@ -81,6 +98,15 @@ function renderizarInicio() {
   });
 
   elemento("weapons").innerHTML = tarjetas.join("");
+}
+
+
+function renderizarMenu() {
+  elemento("menu").classList.remove("hidden");
+  elemento("start").classList.add("hidden");
+  elemento("game").classList.add("hidden");
+  elemento("roomBadge").classList.add("hidden");
+  elemento("loadButton").disabled = !estado.guardado_disponible;
 }
 
 
@@ -112,6 +138,11 @@ function renderizarPanel(jugador) {
   elemento("dexterity").textContent = jugador.destreza;
   elemento("constitution").textContent = jugador.constitucion;
   elemento("defense").textContent = jugador.defensa;
+  elemento("attack").textContent = (
+    `${jugador.ataque_minimo}–${jugador.ataque_maximo}`
+  );
+  elemento("speed").textContent = jugador.velocidad;
+  elemento("evasion").textContent = `${Math.round(jugador.evasion * 100)}%`;
   elemento("room").textContent = (
     `${estado.habitacion}/${estado.habitaciones_totales}`
   );
@@ -134,7 +165,8 @@ function obtenerTituloDelEncuentro(enemigo) {
 
 function obtenerDescripcionDelEncuentro(enemigo) {
   if (estado.fase === "combate") {
-    return `El ${enemigo.nombre} prepara un ataque ${enemigo.intencion}.`;
+    const intencion = enemigo.intencion || "normal";
+    return `El ${enemigo.nombre} prepara un ataque ${intencion}.`;
   }
   if (estado.fase === "nivel") {
     return "Elige cómo quieres desarrollar tu personaje.";
@@ -174,18 +206,31 @@ function renderizarEncuentro() {
 
 
 function agregarAccionesDeCombate(jugador) {
+  const [danoMinimo, danoMaximo] = jugador.ataque_arma;
   crearBoton(
     "Atacar",
     () => llamarApi("accion", { accion: "atacar" }),
+    {
+      tooltip: `Ataque normal: daño base ${jugador.dano_base} + arma `
+        + `${danoMinimo}–${danoMaximo}. El enemigo puede evadir.`,
+    },
   );
   crearBoton(
     "Defender · +1 energía",
     () => llamarApi("accion", { accion: "defender" }),
+    {
+      tooltip: "Duplica la defensa durante este turno y recupera 1 de energía.",
+    },
   );
   crearBoton(
     `${jugador.tecnica} · −2 energía`,
     () => llamarApi("accion", { accion: "tecnica" }),
-    { primario: true, deshabilitado: jugador.energia < 2 },
+    {
+      primario: true,
+      deshabilitado: jugador.energia < 2,
+      tooltip: `${jugador.descripcion_tecnica}. Daño de habilidad ×1.5, `
+        + "amortiguado por Defensa y Constitución enemigas. Coste: 2 energía.",
+    },
   );
 }
 
@@ -194,15 +239,22 @@ function agregarAccionesDeNivel() {
   crearBoton(
     "+1 Fuerza",
     () => llamarApi("nivel", { estadistica: "fuerza" }),
+    { tooltip: "Aumenta el daño de Espadas, Mazas y Morning Star." },
   );
   crearBoton(
     "+1 Destreza",
     () => llamarApi("nivel", { estadistica: "destreza" }),
-    { primario: true },
+    {
+      primario: true,
+      tooltip: "Aumenta el daño de Dagas y Estoques, además de Velocidad y Evasión.",
+    },
   );
   crearBoton(
-    "+1 Constitución · +10 vida",
+    "+1 Constitución · vida y defensa",
     () => llamarApi("nivel", { estadistica: "constitucion" }),
+    {
+      tooltip: "Otorga +10 de vida máxima; cada 2 puntos de CON aportan +1 Defensa.",
+    },
   );
 }
 
@@ -224,7 +276,12 @@ function agregarAccionesDeTienda(jugador) {
       crearBoton(
         `${nombre} · ${producto.precio} oro`,
         () => llamarApi("comprar", { categoria, nombre }),
-        { deshabilitado: jugador.oro < producto.precio },
+        {
+          deshabilitado: jugador.oro < producto.precio,
+          tooltip: categoria === "pociones"
+            ? `Recupera exactamente ${producto.salud} de vida.`
+            : `Daño ${producto.ataque[0]}–${producto.ataque[1]}; defensa ${producto.defensa}.`,
+        },
       );
     }
   }
@@ -255,9 +312,14 @@ function renderizarAcciones() {
     agregarAccionesDeTienda(jugador);
   } else if (estado.fase === "fin") {
     crearBoton(
-      "Nueva expedición",
-      () => llamarApi("reiniciar"),
+      "Nueva partida",
+      () => llamarApi("nueva"),
       { primario: true, completo: true },
+    );
+    crearBoton(
+      "Menú principal",
+      () => llamarApi("reiniciar"),
+      { completo: true },
     );
   }
 }
@@ -280,6 +342,11 @@ function renderizar() {
   if (!estado) {
     return;
   }
+  if (estado.fase === "menu") {
+    renderizarMenu();
+    return;
+  }
+  elemento("menu").classList.add("hidden");
   if (estado.fase === "inicio") {
     renderizarInicio();
     return;
@@ -303,6 +370,18 @@ elemento("startButton").onclick = () => {
     nombre: elemento("name").value,
     arma: armaSeleccionada?.value || "",
   });
+};
+
+
+elemento("newButton").onclick = () => llamarApi("nueva");
+elemento("loadButton").onclick = () => llamarApi("cargar");
+elemento("exitButton").onclick = async () => {
+  try {
+    await fetch("/api/salir", { method: "POST", body: "{}" });
+    elemento("menuMessage").textContent = "Dungeon se ha cerrado. Ya puedes cerrar esta ventana.";
+  } catch {
+    elemento("menuMessage").textContent = "Dungeon ya no está en ejecución.";
+  }
 };
 
 

@@ -1,7 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
-
 :root {
-  --font-game: "Press Start 2P", monospace;
+  --font-game: Consolas, "Courier New", monospace;
   --ink: #e9e2d0;
   --muted: #9a9589;
   --panel: #181a1c;
@@ -102,6 +100,18 @@ label {
   font-size: 29px;
 }
 
+.menu-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.menu-message {
+  min-height: 20px;
+  margin: 20px 0 0;
+  color: var(--muted);
+  font: 12px/1.5 var(--font-game);
+}
+
 .start input {
   width: 100%;
   padding: 14px;
@@ -163,6 +173,7 @@ label {
 
 /* Botones */
 button {
+  position: relative;
   padding: 13px 16px;
   color: var(--ink);
   background: #292c2f;
@@ -171,6 +182,32 @@ button {
   font: 700 12px var(--font-game);
   letter-spacing: 0.05em;
   transition: 0.15s;
+}
+
+button[data-tooltip]::after {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: calc(100% + 9px);
+  width: min(300px, 80vw);
+  padding: 10px;
+  color: var(--ink);
+  background: #0d0f10;
+  border: 1px solid var(--gold);
+  content: attr(data-tooltip);
+  font: 11px/1.5 var(--font-game);
+  text-align: left;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(5px);
+  transition: 0.15s;
+}
+
+button[data-tooltip]:hover::after,
+button[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 button:hover:not(:disabled) {
