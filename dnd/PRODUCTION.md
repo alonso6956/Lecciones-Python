@@ -32,9 +32,17 @@ No requiere instalador, Python ni conexión a Internet.
 
 Los datos se almacenan en:
 
-    %LOCALAPPDATA%\Dungeon\save.json
-    %LOCALAPPDATA%\Dungeon\save.backup.json
+    %LOCALAPPDATA%\Dungeon\save_slot_1.json
+    %LOCALAPPDATA%\Dungeon\save_slot_1.backup.json
+    %LOCALAPPDATA%\Dungeon\save_slot_2.json
+    %LOCALAPPDATA%\Dungeon\save_slot_2.backup.json
+    %LOCALAPPDATA%\Dungeon\save_slot_3.json
+    %LOCALAPPDATA%\Dungeon\save_slot_3.backup.json
     %LOCALAPPDATA%\Dungeon\dungeon.log
+
+Cada partida guarda el estado completo del personaje y del combate. Después de
+guardar o cargar manualmente un slot, el progreso se actualiza automáticamente
+en ese slot activo.
 
 ## Desarrollo
 

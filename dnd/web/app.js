@@ -1,8 +1,20 @@
 // Atajo para buscar un elemento del HTML por su id.
 const elemento = (id) => document.getElementById(id);
+const UI_VERSION = "5";
 
 // Última copia del estado enviada por Python.
 let estado = null;
+let menuPausaAbierto = false;
+let modoSlots = null;
+
+
+function validarVersion(nuevoEstado) {
+  if (nuevoEstado?.ui_version && nuevoEstado.ui_version !== UI_VERSION) {
+    window.location.replace(`/?ui=${nuevoEstado.ui_version}`);
+    return false;
+  }
+  return true;
+}
 
 
 async function llamarApi(ruta, datos = {}) {
@@ -11,7 +23,10 @@ async function llamarApi(ruta, datos = {}) {
   try {
     respuesta = await fetch(`/api/${ruta}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Dungeon-UI-Version": UI_VERSION,
+      },
       body: JSON.stringify(datos),
     });
     resultado = await respuesta.json();
@@ -19,21 +34,124 @@ async function llamarApi(ruta, datos = {}) {
     const mensaje = "Se perdió la conexión con Dungeon. Reinicia la aplicación.";
     elemento("error").textContent = mensaje;
     elemento("menuMessage").textContent = mensaje;
-    return;
+    if (menuPausaAbierto) elemento("pauseMessage").textContent = mensaje;
+    return false;
   }
 
   if (!respuesta.ok) {
     elemento("error").textContent = resultado.error;
     elemento("menuMessage").textContent = resultado.error;
+    if (menuPausaAbierto) elemento("pauseMessage").textContent = resultado.error;
     estado = resultado.estado;
     renderizar();
-    return;
+    return false;
   }
+
+  if (!validarVersion(resultado)) return false;
 
   estado = resultado;
   elemento("error").textContent = "";
   elemento("menuMessage").textContent = "";
   renderizar();
+  return true;
+}
+
+
+function formatearFecha(fecha) {
+  if (!fecha) return "Fecha desconocida";
+  return new Date(fecha).toLocaleString("es-PE", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+}
+
+
+function mostrarAccionesPausa() {
+  modoSlots = null;
+  elemento("pauseTitle").textContent = "Menú de pausa";
+  elemento("pauseActions").classList.remove("hidden");
+  elemento("slotPanel").classList.add("hidden");
+  elemento("pauseMessage").textContent = estado.slot_activo
+    ? `Guardado automático activo en el slot ${estado.slot_activo}.`
+    : "Selecciona Guardar partida para activar un slot.";
+}
+
+
+function crearBotonSlot(datosSlot) {
+  const boton = document.createElement("button");
+  const titulo = document.createElement("strong");
+  const resumen = document.createElement("span");
+  const fecha = document.createElement("small");
+  boton.className = "slot-button";
+  if (datosSlot.slot === estado.slot_activo) boton.classList.add("active");
+  titulo.textContent = `S${datosSlot.slot}`;
+
+  if (datosSlot.ocupado) {
+    const datos = datosSlot.resumen;
+    resumen.textContent = (
+      `${datos.personaje} · Nivel ${datos.nivel} · Habitación ${datos.habitacion}`
+    );
+    fecha.textContent = formatearFecha(datos.fecha);
+  } else {
+    resumen.textContent = datosSlot.error || "Slot vacío";
+    fecha.textContent = modoSlots === "guardar" ? "Disponible para guardar" : "";
+  }
+
+  boton.append(titulo, resumen, fecha);
+  boton.disabled = modoSlots === "cargar" && !datosSlot.ocupado;
+  boton.onclick = async () => {
+    if (
+      modoSlots === "guardar"
+      && datosSlot.ocupado
+      && !window.confirm(`¿Sobrescribir el slot ${datosSlot.slot}?`)
+    ) return;
+
+    const operacion = modoSlots;
+    const correcto = await llamarApi(operacion, { slot: datosSlot.slot });
+    if (!correcto) return;
+    if (operacion === "guardar") {
+      menuPausaAbierto = true;
+      mostrarAccionesPausa();
+    } else {
+      cerrarPausa();
+    }
+  };
+  return boton;
+}
+
+
+function mostrarSlots(modo, desdeMenu = false) {
+  modoSlots = modo;
+  menuPausaAbierto = true;
+  elemento("pauseOverlay").classList.remove("hidden");
+  elemento("pauseActions").classList.add("hidden");
+  elemento("slotPanel").classList.remove("hidden");
+  elemento("pauseTitle").textContent = modo === "guardar"
+    ? "Guardar partida"
+    : "Cargar partida";
+  elemento("slotHelp").textContent = modo === "guardar"
+    ? "Elige dónde guardar. Un slot ocupado pedirá confirmación."
+    : "Elige una partida para continuar.";
+  elemento("slotList").replaceChildren(...estado.slots.map(crearBotonSlot));
+  elemento("backPauseButton").onclick = () => {
+    if (desdeMenu) cerrarPausa();
+    else mostrarAccionesPausa();
+  };
+  elemento("pauseMessage").textContent = "";
+}
+
+
+function abrirPausa() {
+  menuPausaAbierto = true;
+  elemento("pauseOverlay").classList.remove("hidden");
+  mostrarAccionesPausa();
+}
+
+
+function cerrarPausa() {
+  menuPausaAbierto = false;
+  modoSlots = null;
+  elemento("pauseOverlay").classList.add("hidden");
 }
 
 
@@ -57,6 +175,12 @@ function crearBoton(texto, manejador, opciones = {}) {
   }
 
   elemento("actions").appendChild(boton);
+}
+
+
+async function salirAlMenuPrincipal() {
+  const correcto = await llamarApi("reiniciar");
+  if (correcto) cerrarPausa();
 }
 
 
@@ -106,6 +230,7 @@ function renderizarMenu() {
   elemento("start").classList.add("hidden");
   elemento("game").classList.add("hidden");
   elemento("roomBadge").classList.add("hidden");
+  elemento("pauseButton").classList.add("hidden");
   elemento("loadButton").disabled = !estado.guardado_disponible;
 }
 
@@ -150,11 +275,13 @@ function renderizarPanel(jugador) {
 
 
 function obtenerTituloDelEncuentro(enemigo) {
+  if (estado.jugador?.hp <= 0) return "Has muerto";
   const titulos = {
     combate: enemigo?.nombre,
     nivel: "Una decisión importante",
     transicion: enemigo ? "Victoria" : "El camino continúa",
     tienda: "El mercader",
+    muerte: "Has muerto",
     fin: estado.resultado === "victoria"
       ? "Has escapado"
       : "Tu expedición termina",
@@ -164,6 +291,9 @@ function obtenerTituloDelEncuentro(enemigo) {
 
 
 function obtenerDescripcionDelEncuentro(enemigo) {
+  if (estado.jugador?.hp <= 0) {
+    return "La expedición termina aquí, pero tu aventurero conserva su progreso.";
+  }
   if (estado.fase === "combate") {
     const intencion = enemigo.intencion || "normal";
     return `El ${enemigo.nombre} prepara un ataque ${intencion}.`;
@@ -173,6 +303,9 @@ function obtenerDescripcionDelEncuentro(enemigo) {
   }
   if (estado.fase === "tienda") {
     return "Gasta tu oro con cuidado; el camino aún es largo.";
+  }
+  if (estado.fase === "muerte") {
+    return "La expedición termina aquí, pero tu aventurero conserva su progreso.";
   }
   if (estado.fase === "fin") {
     return estado.resultado === "victoria"
@@ -310,6 +443,22 @@ function renderizarAcciones() {
     );
   } else if (estado.fase === "tienda") {
     agregarAccionesDeTienda(jugador);
+  } else if (estado.fase === "muerte" || jugador?.hp <= 0) {
+    crearBoton(
+      "Renacer en la habitación 1",
+      () => llamarApi("respawn"),
+      { primario: true, completo: true },
+    );
+    crearBoton(
+      "Guardar antes de renacer",
+      () => mostrarSlots("guardar"),
+      { completo: true },
+    );
+    crearBoton(
+      "Salir al menú principal",
+      salirAlMenuPrincipal,
+      { completo: true },
+    );
   } else if (estado.fase === "fin") {
     crearBoton(
       "Nueva partida",
@@ -348,13 +497,16 @@ function renderizar() {
   }
   elemento("menu").classList.add("hidden");
   if (estado.fase === "inicio") {
+    elemento("pauseButton").classList.add("hidden");
     renderizarInicio();
     return;
   }
 
   elemento("start").classList.add("hidden");
   elemento("game").classList.remove("hidden");
+  elemento("game").classList.toggle("death-transition", estado.fase === "muerte");
   elemento("roomBadge").classList.remove("hidden");
+  elemento("pauseButton").classList.remove("hidden");
   renderizarPanel(estado.jugador);
   renderizarEncuentro();
   renderizarAcciones();
@@ -374,7 +526,12 @@ elemento("startButton").onclick = () => {
 
 
 elemento("newButton").onclick = () => llamarApi("nueva");
-elemento("loadButton").onclick = () => llamarApi("cargar");
+elemento("loadButton").onclick = () => mostrarSlots("cargar", true);
+elemento("pauseButton").onclick = abrirPausa;
+elemento("resumeButton").onclick = cerrarPausa;
+elemento("saveButton").onclick = () => mostrarSlots("guardar");
+elemento("pauseLoadButton").onclick = () => mostrarSlots("cargar");
+elemento("mainMenuButton").onclick = salirAlMenuPrincipal;
 elemento("exitButton").onclick = async () => {
   try {
     await fetch("/api/salir", { method: "POST", body: "{}" });
@@ -391,10 +548,17 @@ elemento("name").addEventListener("keydown", (evento) => {
   }
 });
 
+document.addEventListener("keydown", (evento) => {
+  if (evento.key !== "Escape") return;
+  if (menuPausaAbierto) cerrarPausa();
+  else if (estado?.jugador && !["menu", "inicio"].includes(estado.fase)) abrirPausa();
+});
+
 
 fetch("/api/estado")
   .then((respuesta) => respuesta.json())
   .then((nuevoEstado) => {
+    if (!validarVersion(nuevoEstado)) return;
     estado = nuevoEstado;
     renderizar();
   })

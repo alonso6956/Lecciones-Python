@@ -1,32 +1,29 @@
 from dataclasses import dataclass
 
-from combat_formulas import calcular_evasion
+from combat_formulas import calcular_evasion, calcular_velocidad
 from items import calcular_factor_arma, objetos
 
 
 RAZAS = {
-    "Goblin": {"base": 1, "velocidad": 10, "oro": (3, 5), "exp": 10},
-    "Esqueleto": {"base": 2, "velocidad": 10, "oro": (5, 10), "exp": 15},
-    "Bandido": {"base": 3, "velocidad": 11, "oro": (8, 13), "exp": 20},
-    "Orco": {"base": 4, "velocidad": 9, "oro": (10, 15), "exp": 30},
-    "Troll": {"base": 5, "velocidad": 8, "oro": (15, 22), "exp": 40},
+    "Goblin": {"base": 1, "oro": (3, 5), "exp": 10},
+    "Esqueleto": {"base": 2, "oro": (5, 10), "exp": 15},
+    "Bandido": {"base": 3, "oro": (8, 13), "exp": 20},
+    "Orco": {"base": 4, "oro": (10, 15), "exp": 30},
+    "Troll": {"base": 5, "oro": (15, 22), "exp": 40},
 }
 
 ARQUETIPOS = {
     "Rogue": {
         "bonus": "destreza",
         "arma": "Dagas de hierro",
-        "bonus_velocidad": 3,
     },
     "Guerrero": {
         "bonus": "constitucion",
         "arma": "Espada y escudo de hierro",
-        "bonus_velocidad": 0,
     },
     "Bárbaro": {
         "bonus": "fuerza",
         "arma": "Maza de hierro",
-        "bonus_velocidad": 0,
     },
 }
 
@@ -41,6 +38,8 @@ SPAWN_POR_HABITACION = (
 
 @dataclass
 class Enemigo:
+    VELOCIDAD_BASE = 10
+
     raza: str
     arquetipo: str
     fuerza: int
@@ -48,7 +47,6 @@ class Enemigo:
     constitucion: int
     hp: int
     salud_maxima: int
-    velocidad: int
     arma: str
     oro: tuple
     exp: int
@@ -73,6 +71,10 @@ class Enemigo:
     def evasion(self):
         return calcular_evasion(self.destreza)
 
+    @property
+    def velocidad(self):
+        return calcular_velocidad(self.VELOCIDAD_BASE, self.destreza)
+
 
 def crear_enemigo(raza, arquetipo):
     datos_raza = RAZAS[raza]
@@ -92,18 +94,11 @@ def crear_enemigo(raza, arquetipo):
         arquetipo=arquetipo,
         hp=salud_maxima,
         salud_maxima=salud_maxima,
-        # La DEX racial aporta evasión, pero no altera la frecuencia de ataque.
-        # Solo Rogue recibe el bono explícito propio de su arquetipo.
-        velocidad=calcular_velocidad_enemigo(raza, arquetipo),
         arma=datos_arquetipo["arma"],
         oro=datos_raza["oro"],
         exp=datos_raza["exp"],
         **stats,
     )
-
-
-def calcular_velocidad_enemigo(raza, arquetipo):
-    return RAZAS[raza]["velocidad"] + ARQUETIPOS[arquetipo]["bonus_velocidad"]
 
 
 def elegir_enemigo(numero_habitacion, rng):

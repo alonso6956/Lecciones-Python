@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dungeon</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/style.css?v=5">
   </head>
   <body>
   <main class="shell">
@@ -13,8 +13,11 @@
         <p class="eyebrow">CRÓNICAS DEL CALABOZO</p>
         <h1>Dungeon</h1>
       </div>
-      <div id="roomBadge" class="room-badge hidden">
-        Habitación <strong id="room">0/50</strong>
+      <div class="header-actions">
+        <div id="roomBadge" class="room-badge hidden">
+          Habitación <strong id="room">0/50</strong>
+        </div>
+        <button id="pauseButton" class="pause-button hidden">Pausa</button>
       </div>
     </header>
 
@@ -145,6 +148,25 @@
       </div>
     </section>
     </main>
-    <script src="/app.js"></script>
+
+    <div id="pauseOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+      <section class="pause-panel card">
+        <p class="kicker">PARTIDA EN PAUSA</p>
+        <h2 id="pauseTitle">Menú de pausa</h2>
+        <div id="pauseActions" class="menu-actions">
+          <button id="resumeButton" class="primary wide">Continuar</button>
+          <button id="saveButton" class="wide">Guardar partida</button>
+          <button id="pauseLoadButton" class="wide">Cargar partida</button>
+          <button id="mainMenuButton" class="wide">Salir al menú principal</button>
+        </div>
+        <div id="slotPanel" class="hidden">
+          <p id="slotHelp" class="slot-help"></p>
+          <div id="slotList" class="slot-list"></div>
+          <button id="backPauseButton" class="wide">Volver</button>
+        </div>
+        <p id="pauseMessage" class="menu-message"></p>
+      </section>
+    </div>
+    <script src="/app.js?v=5"></script>
   </body>
 </html>

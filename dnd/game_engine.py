@@ -2,7 +2,7 @@ import random
 
 from character import Personaje
 from combat_formulas import calcular_dano_habilidad
-from enemies import Enemigo, calcular_velocidad_enemigo, elegir_enemigo
+from enemies import Enemigo, elegir_enemigo
 from items import (
     objetos,
     obtener_dano_arma,
@@ -355,8 +355,38 @@ class MotorJuego:
             else:
                 self._accion_enemigo(defensa_extra)
                 if self.jugador.hp <= 0:
-                    self._terminar("derrota")
+                    self._preparar_respawn()
                     return
+
+    def _preparar_respawn(self):
+        """Detiene el combate para que la derrota sea visible antes de renacer."""
+        self.jugador.hp = 0
+        self.fase = "muerte"
+        self.resultado = "derrota"
+        self._registrar("Has caído en el calabozo.")
+
+    def _respawn(self):
+        """Reinicia la expedición sin reemplazar ni degradar al personaje."""
+        self._exigir_fase("muerte")
+        self.jugador.hp = self.jugador.salud_maxima
+        self.resultado = None
+        self.numero_habitacion = 1
+        self.habitacion_anterior = "combate"
+        self.enemigo_actual = None
+        self.energia = self.ENERGIA_MAXIMA
+        self.enemigo_dano = 0
+        self.intencion = None
+        self.turno_global = 0
+        self.ultimo_actor = None
+        self.acumuladores_velocidad = {"jugador": 0, "enemigo": 0}
+        self.is_defending = False
+        self._registrar(
+            "Despiertas recuperado al inicio del calabozo; conservas tu progreso."
+        )
+        self._iniciar_combate()
+
+    def respawn(self):
+        self._respawn()
 
     def _resolver_victoria(self):
         enemigo = self.enemigo_actual
@@ -399,6 +429,8 @@ class MotorJuego:
         else:
             self.jugador.oro -= datos["precio"]
             self.jugador.arma = nombre
+            if nombre not in self.jugador.inventario:
+                self.jugador.inventario.append(nombre)
             self._registrar(f"Compras y equipas {nombre}.")
 
     def _terminar(self, resultado):
@@ -414,6 +446,7 @@ class MotorJuego:
             jugador = {
                 "nombre": self.jugador.nombre,
                 "arma": self.jugador.arma,
+                "inventario": list(self.jugador.inventario),
                 "fuerza": self.jugador.fuerza,
                 "destreza": self.jugador.destreza,
                 "constitucion": self.jugador.constitucion,
@@ -451,7 +484,14 @@ class MotorJuego:
             habitacion = int(datos["numero_habitacion"])
             jugador_datos = datos["jugador"]
             enemigo_datos = datos.get("enemigo")
-            if fase not in {"combate", "nivel", "transicion", "tienda", "fin"}:
+            if fase not in {
+                "combate",
+                "nivel",
+                "transicion",
+                "tienda",
+                "muerte",
+                "fin",
+            }:
                 raise ValueError
             if not 1 <= habitacion <= self.HABITACIONES_TOTALES:
                 raise ValueError
@@ -472,6 +512,16 @@ class MotorJuego:
                     "constitucion": int(jugador_datos["constitucion"]),
                 },
             )
+            inventario = jugador_datos.get("inventario", [arma])
+            if (
+                not isinstance(inventario, list)
+                or not inventario
+                or any(item not in objetos["armas"] for item in inventario)
+            ):
+                raise ValueError
+            jugador.inventario = list(dict.fromkeys(inventario))
+            if arma not in jugador.inventario:
+                jugador.inventario.append(arma)
             for atributo in ("hp", "nivel", "oro", "exp"):
                 setattr(jugador, atributo, int(jugador_datos[atributo]))
             if min(jugador.fuerza, jugador.destreza, jugador.constitucion) < 1:
@@ -483,6 +533,11 @@ class MotorJuego:
 
             if enemigo_datos and enemigo_datos.get("arma") == "Espada y escudo":
                 enemigo_datos = {**enemigo_datos, "arma": "Espada y escudo de hierro"}
+            if enemigo_datos:
+                # La velocidad es derivada de DEX; se ignora el valor redundante
+                # presente en guardados de versiones anteriores.
+                enemigo_datos = {**enemigo_datos}
+                enemigo_datos.pop("velocidad", None)
             enemigo = Enemigo(**enemigo_datos) if enemigo_datos else None
             if fase == "combate" and enemigo is None:
                 raise ValueError
@@ -493,13 +548,6 @@ class MotorJuego:
                     raise ValueError
                 if not 0 <= enemigo.hp <= enemigo.salud_maxima:
                     raise ValueError
-                # Recalcula la velocidad para reparar guardados creados cuando
-                # la DEX racial incrementaba incorrectamente los turnos.
-                enemigo.velocidad = calcular_velocidad_enemigo(
-                    enemigo.raza,
-                    enemigo.arquetipo,
-                )
-
             energia = int(datos["energia"])
             turno_global = int(datos["turno_global"])
             ultimo_actor = datos.get("ultimo_actor")
@@ -572,6 +620,7 @@ class MotorJuego:
             datos["jugador"] = {
                 "nombre": j.nombre,
                 "arma": j.arma,
+                "inventario": list(j.inventario),
                 "hp": max(0, j.hp),
                 "salud_maxima": j.salud_maxima,
                 "energia": self.energia,
@@ -595,7 +644,12 @@ class MotorJuego:
                 ],
                 "ataque_arma": ataque_arma,
             }
-        if self.enemigo_actual and self.fase in {"combate", "nivel", "transicion"}:
+        if self.enemigo_actual and self.fase in {
+            "combate",
+            "nivel",
+            "transicion",
+            "muerte",
+        }:
             enemigo = self.enemigo_actual
             datos["enemigo"] = {
                 "nombre": enemigo.nombre,

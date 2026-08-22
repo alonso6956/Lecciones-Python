@@ -8,7 +8,7 @@ class WeaponScalingStrategy:
     """Asocia cada tipo de arma con una única estadística ofensiva."""
 
     estadistica_principal: str
-    crecimiento_por_punto: float = 0.10
+    crecimiento_por_punto: float = 0.20
 
     def factor(self, fuerza, destreza):
         estadisticas = {"fuerza": fuerza, "destreza": destreza}

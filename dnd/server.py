@@ -15,6 +15,7 @@ configuracion = cargar_configuracion()
 gestor_guardado = GestorGuardado(configuracion.data_dir)
 motor = MotorJuego()
 servidor_activo = None
+UI_VERSION = "5"
 
 
 def configurar_logging():
@@ -53,9 +54,18 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(configuracion.web_dir), **kwargs)
 
+    def end_headers(self):
+        """Evita que la UI reutilice HTML, CSS o JavaScript de otra versión."""
+        if not urlparse(self.path).path.startswith("/api/"):
+            self.send_header("Cache-Control", "no-store, max-age=0")
+        super().end_headers()
+
     def _estado(self):
         estado = motor.estado()
         estado["guardado_disponible"] = gestor_guardado.existe()
+        estado["slots"] = gestor_guardado.listar_slots()
+        estado["slot_activo"] = gestor_guardado.slot_activo
+        estado["ui_version"] = UI_VERSION
         estado["entorno"] = configuracion.entorno
         return estado
 
@@ -88,9 +98,15 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
             datos = self._leer_json()
             guardar = False
             if ruta == "/api/nueva":
+                gestor_guardado.desactivar_slot()
                 motor.nueva_partida()
             elif ruta == "/api/cargar":
-                motor.importar_guardado(gestor_guardado.cargar())
+                motor.importar_guardado(gestor_guardado.cargar(datos.get("slot")))
+            elif ruta == "/api/guardar":
+                gestor_guardado.guardar(
+                    datos.get("slot"),
+                    motor.exportar_guardado(),
+                )
             elif ruta == "/api/iniciar":
                 motor.iniciar(datos.get("nombre", ""), datos.get("arma", ""))
                 guardar = True
@@ -106,8 +122,12 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
             elif ruta == "/api/continuar":
                 motor.siguiente_habitacion()
                 guardar = True
+            elif ruta == "/api/respawn":
+                motor.respawn()
+                guardar = True
             elif ruta == "/api/reiniciar":
                 motor.reiniciar()
+                gestor_guardado.desactivar_slot()
             elif ruta == "/api/salir":
                 self._json({"cerrando": True})
                 threading.Thread(
@@ -119,8 +139,11 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
                 self._json({"error": "Ruta no encontrada."}, 404)
                 return
 
-            if guardar:
-                gestor_guardado.guardar(motor.exportar_guardado())
+            if guardar and gestor_guardado.slot_activo is not None:
+                gestor_guardado.guardar(
+                    gestor_guardado.slot_activo,
+                    motor.exportar_guardado(),
+                )
             self._json(self._estado())
         except (ErrorJuego, ErrorGuardado, ValueError, json.JSONDecodeError) as error:
             self._json({"error": str(error), "estado": self._estado()}, 400)
@@ -142,7 +165,7 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
 def ejecutar():
     global servidor_activo
     configurar_logging()
-    url = f"http://{configuracion.host}:{configuracion.port}"
+    url = f"http://{configuracion.host}:{configuracion.port}/?ui={UI_VERSION}"
     try:
         servidor_activo = ServidorDungeon(
             (configuracion.host, configuracion.port),

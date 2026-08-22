@@ -14,6 +14,7 @@ class Personaje:
     def __init__(self, nombre, arma, stats):
         self.nombre = nombre
         self.arma = arma
+        self.inventario = [arma]
         self.fuerza = stats["fuerza"]
         self.destreza = stats["destreza"]
         self.constitucion = stats.get("constitucion", stats.get("Constitución", 1))
