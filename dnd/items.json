@@ -1,0 +1,215 @@
+{
+  "items": [
+    {
+      "id": "espada_hierro",
+      "nombre": "Espada de hierro",
+      "clase": "arma",
+      "tipo_arma": "espada",
+      "estadistica_escalado": "fuerza",
+      "crecimiento_por_punto": 0.25,
+      "tier": 1,
+      "inicial": true,
+      "ataque": [
+        5,
+        10
+      ],
+      "defensa": 1,
+      "dos manos": false,
+      "precio": 50,
+      "requisitos": {
+        "fuerza": 1
+      }
+    },
+    {
+      "id": "dagas_hierro",
+      "nombre": "Dagas de hierro",
+      "clase": "arma",
+      "tipo_arma": "daga",
+      "estadistica_escalado": "destreza",
+      "crecimiento_por_punto": 0.2,
+      "tier": 1,
+      "inicial": true,
+      "ataque": [
+        4,
+        8
+      ],
+      "defensa": 1,
+      "dos manos": true,
+      "precio": 50,
+      "requisitos": {
+        "destreza": 1
+      }
+    },
+    {
+      "id": "maza_hierro",
+      "nombre": "Maza de hierro",
+      "clase": "arma",
+      "tipo_arma": "maza",
+      "estadistica_escalado": "fuerza",
+      "crecimiento_por_punto": 0.2,
+      "tier": 1,
+      "inicial": true,
+      "ataque": [
+        6,
+        13
+      ],
+      "defensa": 1,
+      "dos manos": false,
+      "precio": 50,
+      "requisitos": {
+        "fuerza": 1
+      }
+    },
+    {
+      "id": "morning_star",
+      "nombre": "Morning Star",
+      "clase": "arma",
+      "tipo_arma": "maza",
+      "estadistica_escalado": "fuerza",
+      "crecimiento_por_punto": 0.2,
+      "tier": 2,
+      "inicial": false,
+      "ataque": [
+        14,
+        21
+      ],
+      "defensa": 2,
+      "dos manos": false,
+      "precio": 90,
+      "requisitos": {
+        "fuerza": 3
+      }
+    },
+    {
+      "id": "estoque_acero",
+      "nombre": "Estoque de acero",
+      "clase": "arma",
+      "tipo_arma": "daga",
+      "estadistica_escalado": "destreza",
+      "crecimiento_por_punto": 0.2,
+      "tier": 3,
+      "inicial": false,
+      "ataque": [
+        10,
+        14
+      ],
+      "defensa": 8,
+      "dos manos": true,
+      "precio": 110,
+      "requisitos": {
+        "destreza": 3
+      }
+    },
+    {
+      "id": "escudo_hierro",
+      "nombre": "Escudo de hierro",
+      "clase": "secundario",
+      "tipo_secundario": "escudo",
+      "defensa": 5,
+      "precio": 45,
+      "requisitos": {
+        "fuerza": 1
+      },
+      "peso": 5.0,
+      "durabilidad": 100,
+      "bonificaciones": {}
+    },
+    {
+      "id": "casco_hierro",
+      "nombre": "Casco de hierro",
+      "clase": "armadura",
+      "slot": "casco",
+      "defensa": 2,
+      "precio": 35,
+      "requisitos": {
+        "constitucion": 1
+      },
+      "peso": 2.5,
+      "durabilidad": 100,
+      "bonificaciones": {
+        "constitucion": 1
+      }
+    },
+    {
+      "id": "peto_hierro",
+      "nombre": "Peto de hierro",
+      "clase": "armadura",
+      "slot": "pecho",
+      "defensa": 5,
+      "precio": 75,
+      "requisitos": {
+        "fuerza": 2,
+        "constitucion": 2
+      },
+      "peso": 8.0,
+      "durabilidad": 100,
+      "bonificaciones": {
+        "constitucion": 1
+      }
+    },
+    {
+      "id": "brazales_hierro",
+      "nombre": "Brazales de hierro",
+      "clase": "armadura",
+      "slot": "brazos",
+      "defensa": 2,
+      "precio": 40,
+      "requisitos": {
+        "fuerza": 1
+      },
+      "peso": 2.0,
+      "durabilidad": 100,
+      "bonificaciones": {
+        "fuerza": 1
+      }
+    },
+    {
+      "id": "grebas_hierro",
+      "nombre": "Grebas de hierro",
+      "clase": "armadura",
+      "slot": "piernas",
+      "defensa": 3,
+      "precio": 50,
+      "requisitos": {
+        "destreza": 1
+      },
+      "peso": 4.0,
+      "durabilidad": 100,
+      "bonificaciones": {
+        "destreza": 1
+      }
+    },
+    {
+      "id": "pocion_pequena",
+      "nombre": "Pocion peque\u00f1a",
+      "clase": "consumible",
+      "efecto": "curacion",
+      "valor": 5,
+      "precio": 10
+    },
+    {
+      "id": "pocion_mediana",
+      "nombre": "Pocion mediana",
+      "clase": "consumible",
+      "efecto": "curacion",
+      "valor": 15,
+      "precio": 25
+    },
+    {
+      "id": "pocion_grande",
+      "nombre": "Pocion grande",
+      "clase": "consumible",
+      "efecto": "curacion",
+      "valor": 30,
+      "precio": 50
+    },
+    {
+      "id": "pocion_extra_grande",
+      "nombre": "Pocion extra grande",
+      "clase": "consumible",
+      "efecto": "curacion",
+      "valor": 50,
+      "precio": 70
+    }
+  ]
+}

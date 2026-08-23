@@ -1,7 +1,3 @@
-from items import calcular_factor_arma
-
-
-MULTIPLICADOR_HABILIDAD = 1.50
 FACTOR_CONTROL = 20.0
 MITIGACION_MINIMA = 0.35
 MITIGACION_MAXIMA = 0.90
@@ -24,28 +20,18 @@ def calcular_dano_habilidad(
     *,
     dano_base,
     dano_arma,
-    nombre_arma,
-    fuerza,
-    destreza,
+    habilidad,
+    nivel_habilidad,
+    valor_atributo,
     defensa_objetivo,
     constitucion_objetivo,
 ):
-    """Calcula daño de habilidad escalado y amortiguado por el objetivo.
-
-    Primero, el perfil del arma convierte STR/DEX en un factor de crecimiento.
-    El potencial es (base + arma) por perfil por multiplicador de habilidad.
-    Después, Defensa y CON forman la presión defensiva del objetivo y entran
-    en la curva control / (control + presión), con rendimientos decrecientes.
-
-    La mitigación queda entre 35% y 90%: el suelo evita que la habilidad quede
-    obsoleta contra stats altas y el techo evita ignorar objetivos débiles.
-    Como no depende de una clase concreta, sirve también para enemigos.
-    """
-    factor_escalado = calcular_factor_arma(nombre_arma, fuerza, destreza)
+    """Calcula una habilidad desde su atributo y nivel, no desde el arma."""
+    factor_escalado = 1 + max(0, valor_atributo - 1) * 0.20
     dano_potencial = (
         (dano_base + dano_arma)
         * factor_escalado
-        * MULTIPLICADOR_HABILIDAD
+        * habilidad.multiplicador_dano(nivel_habilidad)
     )
     presion_defensiva = defensa_objetivo + constitucion_objetivo * 0.50
     mitigacion = FACTOR_CONTROL / (FACTOR_CONTROL + presion_defensiva)

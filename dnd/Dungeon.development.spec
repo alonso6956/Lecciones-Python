@@ -4,7 +4,12 @@ analisis = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[("web", "web"), ("config.json", ".")],
+    datas=[
+        ("web", "web"),
+        ("config.json", "."),
+        ("items.json", "."),
+        ("skills.json", "."),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

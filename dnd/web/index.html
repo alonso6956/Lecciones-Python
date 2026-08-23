@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dungeon</title>
-    <link rel="stylesheet" href="/style.css?v=5">
+    <link rel="stylesheet" href="/style.css?v=14">
   </head>
   <body>
   <main class="shell">
@@ -17,6 +17,9 @@
         <div id="roomBadge" class="room-badge hidden">
           Habitación <strong id="room">0/50</strong>
         </div>
+        <button id="skillsButton" class="header-button hidden">Habilidades</button>
+        <button id="inventoryButton" class="header-button hidden">Inventario</button>
+        <button id="equipmentButton" class="header-button hidden">Equipo</button>
         <button id="pauseButton" class="pause-button hidden">Pausa</button>
       </div>
     </header>
@@ -110,7 +113,9 @@
         </section>
 
         <aside class="sheet card">
-          <p class="kicker">PERSONAJE</p>
+          <p class="kicker">
+            PERSONAJE · <span id="statPoints">0</span> punto(s) de estadística
+          </p>
           <div class="stats">
             <div>
               <span>Fuerza</span>
@@ -167,6 +172,29 @@
         <p id="pauseMessage" class="menu-message"></p>
       </section>
     </div>
-    <script src="/app.js?v=5"></script>
+
+    <div id="collectionOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+      <section class="collection-panel card">
+        <p class="kicker">PERSONAJE</p>
+        <h2 id="collectionTitle">Inventario</h2>
+        <section id="skillsPanel" class="hidden">
+          <p class="collection-summary">
+            Puntos disponibles: <strong id="skillPoints">0</strong>
+          </p>
+          <div id="skillList" class="collection-list"></div>
+        </section>
+        <section id="inventoryPanel" class="hidden">
+          <div id="inventoryList" class="collection-list"></div>
+        </section>
+        <section id="equipmentPanel" class="hidden">
+          <p class="collection-summary">
+            Defensa de equipo: <strong id="equipmentDefense">0</strong>
+          </p>
+          <div id="equipmentList" class="equipment-list"></div>
+        </section>
+        <button id="closeCollectionButton" class="primary wide">Cerrar</button>
+      </section>
+    </div>
+    <script src="/app.js?v=14"></script>
   </body>
 </html>

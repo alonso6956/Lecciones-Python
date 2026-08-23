@@ -15,7 +15,7 @@ configuracion = cargar_configuracion()
 gestor_guardado = GestorGuardado(configuracion.data_dir)
 motor = MotorJuego()
 servidor_activo = None
-UI_VERSION = "5"
+UI_VERSION = "14"
 
 
 def configurar_logging():
@@ -111,13 +111,28 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
                 motor.iniciar(datos.get("nombre", ""), datos.get("arma", ""))
                 guardar = True
             elif ruta == "/api/accion":
-                motor.actuar(datos.get("accion", ""))
+                motor.actuar(
+                    datos.get("accion", ""),
+                    datos.get("habilidad"),
+                )
                 guardar = True
             elif ruta == "/api/nivel":
                 motor.subir_nivel(datos.get("estadistica", ""))
                 guardar = True
             elif ruta == "/api/comprar":
                 motor.comprar(datos.get("categoria", ""), datos.get("nombre", ""))
+                guardar = True
+            elif ruta == "/api/mejorar-habilidad":
+                motor.mejorar_habilidad(datos.get("habilidad", ""))
+                guardar = True
+            elif ruta == "/api/equipar":
+                motor.equipar_item(datos.get("item", ""))
+                guardar = True
+            elif ruta == "/api/desequipar":
+                motor.desequipar_item(datos.get("slot", ""))
+                guardar = True
+            elif ruta == "/api/usar-item":
+                motor.usar_item(datos.get("item", ""))
                 guardar = True
             elif ruta == "/api/continuar":
                 motor.siguiente_habitacion()
