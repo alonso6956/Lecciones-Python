@@ -1,6 +1,6 @@
 // Atajo para buscar un elemento del HTML por su id.
 const elemento = (id) => document.getElementById(id);
-const UI_VERSION = "14";
+const UI_VERSION = "17";
 
 // Última copia del estado enviada por Python.
 let estado = null;
@@ -252,7 +252,6 @@ function renderizarInicio() {
           <h3>${arma.nombre}</h3>
           <p>
             Daño <b>${arma.ataque[0]}–${arma.ataque[1]}</b>
-            · Defensa fija <b>${arma.defensa}</b>
           </p>
           <p>
             Escala con ${arma.tipo === "daga" ? "Destreza" : "Fuerza"}
@@ -311,18 +310,71 @@ function renderizarPanel(jugador) {
   elemento("dexterity").textContent = jugador.destreza;
   elemento("constitution").textContent = jugador.constitucion;
   elemento("statPoints").textContent = jugador.puntos_estadistica;
-  elemento("defense").textContent = jugador.defensa;
+  elemento("defense").textContent = jugador.armadura;
   elemento("attack").textContent = (
     `${jugador.ataque_minimo}–${jugador.ataque_maximo}`
   );
   elemento("speed").textContent = jugador.velocidad;
   elemento("evasion").textContent = `${Math.round(jugador.evasion * 100)}%`;
+  const penalizacionesPeso = [];
+  if (jugador.penalizacion_evasion_peso > 0) {
+    penalizacionesPeso.push(
+      `EVA -${Math.round(jugador.penalizacion_evasion_peso * 100)}%`,
+    );
+  }
+  if (jugador.penalizacion_velocidad_peso > 0) {
+    penalizacionesPeso.push(`VEL -${jugador.penalizacion_velocidad_peso}`);
+  }
+  elemento("weight").textContent = (
+    `${jugador.peso_equipado}/${jugador.capacidad_peso}`
+  );
+  const penalizacionPeso = elemento("weightPenalty");
+  penalizacionPeso.textContent = penalizacionesPeso.join(" · ");
+  penalizacionPeso.classList.toggle("hidden", penalizacionesPeso.length === 0);
   elemento("room").textContent = (
     `${estado.habitacion}/${estado.habitaciones_totales}`
   );
+  renderizarEstadosActivos(jugador, estado.enemigo);
   renderizarHabilidades(jugador);
   renderizarInventario(jugador);
   renderizarEquipo(jugador);
+}
+
+
+function renderizarEstadosActivos(jugador, enemigo) {
+  const estados = [
+    ...(jugador.estados_activos || []).map((efecto) => ({
+      ...efecto,
+      objetivo: "Tú",
+    })),
+    ...((enemigo?.estados_activos) || []).map((efecto) => ({
+      ...efecto,
+      objetivo: "Enemigo",
+    })),
+  ];
+  const panel = elemento("statusPanel");
+  panel.classList.remove("hidden");
+  const tarjetas = estados.map((efecto) => {
+    const tarjeta = document.createElement("article");
+    const encabezado = document.createElement("div");
+    const nombre = document.createElement("strong");
+    const duracion = document.createElement("span");
+    const descripcion = document.createElement("small");
+    tarjeta.classList.add("status-effect", `status-${efecto.tipo}`);
+    nombre.textContent = `${efecto.objetivo} · ${efecto.nombre}`;
+    duracion.textContent = efecto.duracion;
+    descripcion.textContent = efecto.descripcion;
+    encabezado.append(nombre, duracion);
+    tarjeta.append(encabezado, descripcion);
+    return tarjeta;
+  });
+  if (tarjetas.length === 0) {
+    const vacio = document.createElement("p");
+    vacio.classList.add("status-empty");
+    vacio.textContent = "Sin efectos activos.";
+    tarjetas.push(vacio);
+  }
+  elemento("activeStatuses").replaceChildren(...tarjetas);
 }
 
 
@@ -340,17 +392,11 @@ function renderizarHabilidades(jugador) {
     const boton = document.createElement("button");
     nombre.textContent = habilidad.nombre;
     nivel.textContent = `${habilidad.nivel}/${habilidad.nivel_maximo}`;
-    const progreso = habilidad.tipo_efecto === "ataques_multiples"
-      ? `${habilidad.numero_golpes} golpes · `
-        + `${Math.round(habilidad.dano_total_por_golpe * 100)}% del daño total cada uno`
-      : habilidad.causa_dano
-        ? `+${Math.round(habilidad.bonus_dano * 100)}% daño`
-      : `efecto defensivo · ${habilidad.duracion} turnos`;
     detalle.textContent = habilidad.activa
       ? `ACTIVA · ${habilidad.turnos_activos} turno(s) restante(s)`
-      : habilidad.desbloqueada
-      ? `Requiere ${habilidad.arma_requerida} · ${progreso}`
-      : `Bloqueada · requiere ${habilidad.arma_requerida}`;
+      : `${habilidad.descripcion} Requiere ${habilidad.arma_requerida}. `
+        + `Coste: ${habilidad.costo_energia} de energía. `
+        + `Cooldown: ${habilidad.cooldown_turnos} turnos.`;
     tarjeta.classList.toggle("skill-active-card", habilidad.activa);
     boton.textContent = habilidad.desbloqueada ? "Mejorar" : "Desbloquear";
     boton.disabled = (
@@ -369,29 +415,101 @@ function renderizarHabilidades(jugador) {
 }
 
 
+function requisitosObjeto(requisitos = {}) {
+  const nombres = {
+    fuerza: "Fuerza",
+    destreza: "Destreza",
+    constitucion: "Constitución",
+  };
+  const valores = Object.entries(requisitos).map(
+    ([atributo, valor]) => `${nombres[atributo] || atributo} ${valor}`,
+  );
+  return valores.length ? `Requiere ${valores.join(", ")}` : "Sin requisitos";
+}
+
+
+function descripcionPasiva(pasiva) {
+  if (!pasiva) return "Sin pasiva";
+  if (pasiva.efecto === "critico") {
+    return `Pasiva ${pasiva.nombre}: ${Math.round(pasiva.probabilidad * 100)}% `
+      + "de probabilidad de golpe crítico";
+  }
+  if (pasiva.efecto === "ignorar_defensa") {
+    return `Pasiva ${pasiva.nombre}: ${Math.round(pasiva.probabilidad * 100)}% `
+      + "de ignorar armadura y escudo";
+  }
+  if (pasiva.efecto === "doble_ataque_sangrado") {
+    return `Pasiva ${pasiva.nombre}: ${pasiva.numero_ataques} ataques; `
+      + `${pasiva.dano_sangrado} de sangrado por impacto`;
+  }
+  return `Pasiva ${pasiva.nombre}: ${pasiva.descripcion}`;
+}
+
+
+function descripcionObjeto(item) {
+  const detalles = [];
+  if (item.clase === "arma") {
+    detalles.push(`Tier ${item.tier}`);
+    detalles.push(`Daño ${item.ataque[0]}–${item.ataque[1]}`);
+    detalles.push(item.dos_manos ? "Dos manos" : "Una mano");
+    const atributo = item.estadistica_escalado === "destreza"
+      ? "Destreza"
+      : "Fuerza";
+    detalles.push(
+      `Escala con ${atributo}: +${Math.round(item.crecimiento_por_punto * 100)}% por punto`,
+    );
+    detalles.push(descripcionPasiva(item.pasiva));
+  } else if (item.clase === "secundario") {
+    detalles.push(`Tier ${item.tier}`);
+    detalles.push(`${Math.round(item.probabilidad_bloqueo * 100)}% de bloqueo`);
+    detalles.push(
+      `Bloquea ${Math.round(item.porcentaje_dano_bloqueado * 100)}% del daño`,
+    );
+    detalles.push(`Peso ${item.peso} kg`);
+    detalles.push(`Durabilidad ${item.durabilidad}`);
+  } else if (item.clase === "armadura") {
+    detalles.push(`${item.defensa} de armadura`);
+    detalles.push(`Slot ${item.slot}`);
+    detalles.push(`Peso ${item.peso} kg`);
+    detalles.push(`Durabilidad ${item.durabilidad}`);
+  } else if (item.clase === "consumible") {
+    detalles.push(`Recupera ${item.valor || item.salud} de vida`);
+  } else if (item.descripcion) {
+    detalles.push(item.descripcion);
+  }
+  if (item.requisitos) detalles.push(requisitosObjeto(item.requisitos));
+  return detalles.join(" · ");
+}
+
+
 function renderizarInventario(jugador) {
   const puedeGestionar = !["menu", "inicio", "combate", "fin"].includes(
     estado.fase,
   );
+  const puedeUsarConsumible = !["menu", "inicio", "fin"].includes(estado.fase);
   const filas = jugador.inventario.map((item) => {
     const fila = document.createElement("article");
-    const nombre = document.createElement("span");
+    const informacion = document.createElement("div");
+    const nombre = document.createElement("strong");
+    const detalle = document.createElement("small");
     const boton = document.createElement("button");
     nombre.textContent = `${item.nombre} ×${item.cantidad}`;
+    detalle.textContent = descripcionObjeto(item);
+    informacion.append(nombre, detalle);
     if (["arma", "secundario", "armadura"].includes(item.clase)) {
       boton.textContent = item.equipado ? "Equipado" : "Equipar";
       boton.disabled = item.equipado || !puedeGestionar || !item.puede_equipar;
       if (!item.puede_equipar) boton.title = "No cumples los requisitos";
       boton.onclick = () => llamarApi("equipar", { item: item.id });
     } else if (item.clase === "consumible") {
-      boton.textContent = "Usar";
-      boton.disabled = !puedeGestionar || jugador.hp >= jugador.salud_maxima;
+      boton.textContent = estado.fase === "combate" ? "Usar (acción)" : "Usar";
+      boton.disabled = !puedeUsarConsumible || jugador.hp >= jugador.salud_maxima;
       boton.onclick = () => llamarApi("usar-item", { item: item.id });
     } else {
       boton.textContent = "Material";
       boton.disabled = true;
     }
-    fila.append(nombre, boton);
+    fila.append(informacion, boton);
     return fila;
   });
   elemento("inventoryList").replaceChildren(...filas);
@@ -410,10 +528,9 @@ function renderizarEquipo(jugador) {
   const puedeGestionar = !["menu", "inicio", "combate", "fin"].includes(
     estado.fase,
   );
-  const defensaEquipo = Object.values(jugador.equipamiento)
-    .filter(Boolean)
-    .reduce((total, item) => total + item.defensa, 0);
-  elemento("equipmentDefense").textContent = defensaEquipo;
+  elemento("equipmentDefense").textContent = (
+    jugador.armadura_equipo
+  );
 
   const filas = Object.entries(nombresSlot).map(([slot, etiqueta]) => {
     const actual = jugador.equipamiento[slot];
@@ -424,14 +541,15 @@ function renderizarEquipo(jugador) {
     const selector = document.createElement("select");
     const desequipar = document.createElement("button");
     titulo.textContent = etiqueta;
-    const bonus = actual
-      ? Object.entries(actual.bonificaciones)
-        .map(([stat, valor]) => `+${valor} ${stat}`)
-        .join(" · ")
-      : "";
-    detalle.textContent = actual
-      ? `${actual.nombre} · +${actual.defensa} defensa${bonus ? ` · ${bonus}` : ""}`
-      : "Vacío";
+    if (!actual) {
+      detalle.textContent = "Vacío";
+    } else if (actual.clase === "armadura") {
+      detalle.textContent = (
+        `${actual.nombre} · ${actual.defensa} de armadura`
+      );
+    } else {
+      detalle.textContent = actual.nombre;
+    }
     texto.append(titulo, detalle);
 
     const candidatos = jugador.inventario.filter((item) => item.slot === slot);
@@ -543,18 +661,19 @@ function renderizarEncuentro() {
 function agregarAccionesDeCombate(jugador) {
   const [danoMinimo, danoMaximo] = jugador.ataque_arma;
   crearBoton(
-    "Atacar",
+    "Atacar · +1 energía",
     () => llamarApi("accion", { accion: "atacar" }),
     {
       tooltip: `Ataque normal: daño base ${jugador.dano_base} + arma `
-        + `${danoMinimo}–${danoMaximo}. El enemigo puede evadir.`,
+        + `${danoMinimo}–${danoMaximo}. Recupera 1 de energía. `
+        + "El enemigo puede evadir.",
     },
   );
   crearBoton(
     "Defender · +1 energía",
     () => llamarApi("accion", { accion: "defender" }),
     {
-      tooltip: "Duplica la defensa durante este turno y recupera 1 de energía.",
+      tooltip: "Duplica la armadura durante este turno y recupera 1 de energía.",
     },
   );
   for (const habilidad of jugador.habilidades) {
@@ -568,18 +687,6 @@ function agregarAccionesDeCombate(jugador) {
     const sinEnergia = jugador.energia < habilidad.costo_energia;
     const enCooldown = habilidad.cooldown > 0;
     const activa = habilidad.activa;
-    let efecto;
-    if (habilidad.tipo_efecto === "ataques_multiples") {
-      efecto = `${habilidad.numero_golpes} tiradas independientes al `
-        + `${Math.round(habilidad.dano_total_por_golpe * 100)}% del daño total`;
-    } else if (habilidad.tipo_efecto === "defensa") {
-      efecto = `Defensa adicional: ${Math.round(habilidad.efecto)}`;
-    } else if (habilidad.tipo_efecto === "reduccion_dano") {
-      efecto = `Reducción: ${Math.round(habilidad.efecto * 100)}% durante `
-        + `${habilidad.duracion} turnos`;
-    } else {
-      efecto = `${habilidad.tipo_efecto}: ${Math.round(habilidad.efecto * 100)}%`;
-    }
     const motivos = [];
     if (bloqueada) motivos.push("habilidad bloqueada");
     if (armaIncorrecta) motivos.push(`requiere ${habilidad.arma_requerida}`);
@@ -606,10 +713,8 @@ function agregarAccionesDeCombate(jugador) {
           || activa,
         tooltip: motivos.length
           ? motivos.join(" · ")
-          : `${habilidad.descripcion} ${efecto}.`
-            + (habilidad.causa_dano
-              ? ` +${Math.round(habilidad.bonus_dano * 100)}% daño.`
-              : ""),
+          : `${habilidad.descripcion} Coste: ${habilidad.costo_energia} de `
+            + `energía. Cooldown: ${habilidad.cooldown_turnos} turnos.`,
       },
     );
   }
@@ -631,10 +736,10 @@ function agregarAccionesDeNivel() {
     },
   );
   crearBoton(
-    "+1 Constitución · vida y defensa",
+    "+1 Constitución · vida y armadura",
     () => llamarApi("nivel", { estadistica: "constitucion" }),
     {
-      tooltip: "Otorga +10 de vida máxima; cada 2 puntos de CON aportan +1 Defensa.",
+      tooltip: "Otorga +10 de vida máxima; cada 2 puntos de CON aportan armadura.",
     },
   );
 }
@@ -656,16 +761,21 @@ function agregarAccionesDeTienda(jugador) {
 
     const productos = Object.entries(estado.tienda[categoria]);
     for (const [nombre, producto] of productos) {
+      const clases = {
+        armas: "arma",
+        secundarios: "secundario",
+        armaduras: "armadura",
+        pociones: "consumible",
+      };
       crearBoton(
         `${nombre} · ${producto.precio} oro`,
         () => llamarApi("comprar", { categoria, nombre }),
         {
           deshabilitado: jugador.oro < producto.precio,
-          tooltip: categoria === "pociones"
-            ? `Recupera exactamente ${producto.salud} de vida.`
-            : categoria === "armas"
-              ? `Daño ${producto.ataque[0]}–${producto.ataque[1]}; defensa ${producto.defensa}.`
-              : `Slot ${producto.slot}; defensa ${producto.defensa}.`,
+          tooltip: descripcionObjeto({
+            ...producto,
+            clase: clases[categoria],
+          }),
         },
       );
     }
@@ -730,7 +840,13 @@ function renderizarRegistro() {
   const registro = elemento("log");
   const mensajes = estado.registro.slice(-14).map((mensaje) => {
     const parrafo = document.createElement("p");
-    parrafo.textContent = mensaje;
+    const evento = mensaje.match(/^\[\[([a-z_]+)\]\]\s*/);
+    if (evento) {
+      parrafo.classList.add(`log-event-${evento[1]}`);
+      parrafo.textContent = mensaje.slice(evento[0].length);
+    } else {
+      parrafo.textContent = mensaje;
+    }
     return parrafo;
   });
 

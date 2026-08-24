@@ -1,0 +1,50 @@
+{
+  "pasivas": [
+    {
+      "id": "critico_espada",
+      "nombre": "Crítico",
+      "descripcion": "Puede realizar un golpe crítico que no atraviesa la armadura.",
+      "tipo_arma": "espada",
+      "efecto": "critico",
+      "valores_tier": {
+        "1": 0.05,
+        "2": 0.07,
+        "3": 0.1
+      },
+      "parametros": {
+        "multiplicador": 1.5
+      }
+    },
+    {
+      "id": "ignorar_defensa_maza",
+      "nombre": "Ignorar defensa",
+      "descripcion": "Puede ignorar por completo la armadura y el bloqueo del escudo.",
+      "tipo_arma": "maza",
+      "efecto": "ignorar_defensa",
+      "valores_tier": {
+        "1": 0.1,
+        "2": 0.15,
+        "3": 0.2
+      }
+    },
+    {
+      "id": "doble_ataque_sangrado_daga",
+      "nombre": "Doble ataque y sangrado",
+      "descripcion": "Ataca dos veces; cada impacto aplica o renueva el sangrado.",
+      "tipo_arma": "daga",
+      "efecto": "doble_ataque_sangrado",
+      "valores_tier": {
+        "1": 1,
+        "2": 2,
+        "3": 3
+      },
+      "parametros": {
+        "numero_ataques": 2,
+        "duracion_turnos": 1,
+        "momento_dano": "final_turno_enemigo",
+        "ignora_mitigacion": true,
+        "requiere_reataque": true
+      }
+    }
+  ]
+}

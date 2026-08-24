@@ -537,6 +537,92 @@ button.skill-active:disabled {
   font-size: 20px;
 }
 
+.stats .weight-stat {
+  min-width: 0;
+}
+
+.weight-penalty {
+  display: block;
+  margin-top: 5px;
+  color: #ff9c4a;
+  font: 9px/1.35 var(--font-game);
+  white-space: nowrap;
+}
+
+.status-panel {
+  margin-top: 16px;
+}
+
+.status-panel .kicker {
+  margin-bottom: 8px;
+}
+
+.status-list {
+  display: grid;
+  gap: 7px;
+}
+
+.status-empty {
+  padding: 8px 0;
+  margin: 0;
+  color: var(--muted);
+  font: 9px var(--font-game);
+}
+
+.status-effect {
+  padding: 9px 10px;
+  background: #151719;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+}
+
+.status-effect div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.status-effect strong,
+.status-effect span,
+.status-effect small {
+  font-family: var(--font-game);
+}
+
+.status-effect strong {
+  font-size: 10px;
+}
+
+.status-effect span {
+  color: var(--muted);
+  font-size: 8px;
+  text-align: right;
+}
+
+.status-effect small {
+  display: block;
+  margin-top: 4px;
+  color: #bbb5aa;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.status-buff {
+  border-left-color: #62d9ff;
+}
+
+.status-buff strong {
+  color: #62d9ff;
+}
+
+.status-debuff {
+  border-left-color: #ff6868;
+}
+
+.status-debuff strong {
+  color: #ff6868;
+}
+
 .collection-list {
   display: grid;
   gap: 8px;
@@ -639,6 +725,36 @@ button.skill-active:disabled {
 
 .log p:last-child {
   color: var(--ink);
+}
+
+.log p.log-event-critico {
+  color: #ffd75a;
+  font-weight: 800;
+  text-shadow: 0 0 9px rgb(255 190 40 / 55%);
+}
+
+.log p.log-event-aturdimiento {
+  color: #c998ff;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgb(164 92 255 / 45%);
+}
+
+.log p.log-event-sangrado {
+  color: #ff6868;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgb(220 35 35 / 45%);
+}
+
+.log p.log-event-defensa_ignorada {
+  color: #ff9c4a;
+  font-weight: 800;
+  text-shadow: 0 0 8px rgb(255 112 35 / 45%);
+}
+
+.log p.log-event-bloqueo {
+  color: #62d9ff;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgb(50 185 255 / 45%);
 }
 
 .error {

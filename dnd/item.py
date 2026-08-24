@@ -18,8 +18,8 @@ class Arma(Item):
     tier: int
     inicial: bool
     ataque: tuple
-    defensa: int
     dos_manos: bool = False
+    pasiva_id: str = ""
     requisitos: dict = field(default_factory=dict)
 
     def cumple_requisitos(self, personaje):
@@ -38,7 +38,9 @@ class Arma(Item):
 @dataclass(frozen=True)
 class Secundario(Item):
     tipo_secundario: str
-    defensa: int
+    tier: int = 1
+    probabilidad_bloqueo: float = 0.0
+    porcentaje_dano_bloqueado: float = 0.0
     requisitos: dict = field(default_factory=dict)
     peso: float = 0
     durabilidad: int = 100

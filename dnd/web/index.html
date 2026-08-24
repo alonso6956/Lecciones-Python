@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Dungeon</title>
-    <link rel="stylesheet" href="/style.css?v=14">
+    <link rel="stylesheet" href="/style.css?v=17">
   </head>
   <body>
   <main class="shell">
@@ -130,7 +130,7 @@
               <strong id="constitution">1</strong>
             </div>
             <div>
-              <span>Defensa</span>
+              <span>Armadura</span>
               <strong id="defense">0</strong>
             </div>
             <div>
@@ -145,7 +145,16 @@
               <span>Evasión</span>
               <strong id="evasion">5%</strong>
             </div>
+            <div class="weight-stat">
+              <span>Peso</span>
+              <strong id="weight">0/12</strong>
+              <small id="weightPenalty" class="weight-penalty hidden"></small>
+            </div>
           </div>
+          <section id="statusPanel" class="status-panel">
+            <p class="kicker">ESTADOS ACTIVOS</p>
+            <div id="activeStatuses" class="status-list"></div>
+          </section>
           <div class="divider"></div>
           <p class="kicker">ÚLTIMOS EVENTOS</p>
           <div id="log" class="log"></div>
@@ -188,13 +197,13 @@
         </section>
         <section id="equipmentPanel" class="hidden">
           <p class="collection-summary">
-            Defensa de equipo: <strong id="equipmentDefense">0</strong>
+            Armadura de equipo: <strong id="equipmentDefense">0</strong>
           </p>
           <div id="equipmentList" class="equipment-list"></div>
         </section>
         <button id="closeCollectionButton" class="primary wide">Cerrar</button>
       </section>
     </div>
-    <script src="/app.js?v=14"></script>
+    <script src="/app.js?v=17"></script>
   </body>
 </html>

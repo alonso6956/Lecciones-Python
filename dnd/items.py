@@ -1,7 +1,24 @@
 """Fachada del catálogo JSON para combate, tienda y código existente."""
 
+from combat_formulas import calcular_mitigacion_armadura
 from item import Arma, Armadura, Consumible, Secundario
 from item_factory import item_factory
+from pasiva_factory import pasiva_factory
+
+
+def datos_pasiva_arma(arma):
+    pasiva = pasiva_factory.para_arma(arma)
+    if not pasiva:
+        return None
+    return {
+        "nombre": pasiva.nombre,
+        "descripcion": pasiva.descripcion,
+        "efecto": pasiva.efecto,
+        "valor": pasiva.valor,
+        "probabilidad": pasiva.probabilidad,
+        "dano_sangrado": pasiva.dano_sangrado,
+        "numero_ataques": pasiva.numero_ataques,
+    }
 
 
 def _construir_catalogo_compatible():
@@ -20,8 +37,10 @@ def _construir_catalogo_compatible():
                 "tier": item.tier,
                 "inicial": item.inicial,
                 "ataque": item.ataque,
-                "defensa": item.defensa,
                 "dos_manos": item.dos_manos,
+                "estadistica_escalado": item.estadistica_escalado,
+                "crecimiento_por_punto": item.crecimiento_por_punto,
+                "pasiva": datos_pasiva_arma(item),
                 "precio": item.precio,
                 "requisitos": dict(item.requisitos),
             }
@@ -30,7 +49,11 @@ def _construir_catalogo_compatible():
                 "id": item.id,
                 "tipo": item.tipo_secundario,
                 "slot": "mano_secundaria",
-                "defensa": item.defensa,
+                "tier": item.tier,
+                "probabilidad_bloqueo": item.probabilidad_bloqueo,
+                "porcentaje_dano_bloqueado": item.porcentaje_dano_bloqueado,
+                "peso": item.peso,
+                "durabilidad": item.durabilidad,
                 "precio": item.precio,
                 "requisitos": dict(item.requisitos),
                 "bonificaciones": dict(item.bonificaciones),
@@ -40,6 +63,9 @@ def _construir_catalogo_compatible():
                 "id": item.id,
                 "slot": item.slot,
                 "defensa": item.defensa,
+                "mitigacion": calcular_mitigacion_armadura(item.defensa),
+                "peso": item.peso,
+                "durabilidad": item.durabilidad,
                 "precio": item.precio,
                 "requisitos": dict(item.requisitos),
                 "bonificaciones": dict(item.bonificaciones),
@@ -53,6 +79,7 @@ def _construir_catalogo_compatible():
         else:
             catalogo["materiales"][item.nombre] = {
                 "id": item.id,
+                "descripcion": item.descripcion,
                 "precio": item.precio,
             }
     return catalogo
@@ -77,11 +104,13 @@ def obtener_dano_arma(nombre_arma, rng):
 
 
 def obtener_defensa_arma(nombre_arma):
-    return obtener_arma(nombre_arma).defensa
+    """Compatibilidad legacy: las armas ya no conceden armadura."""
+    obtener_arma(nombre_arma)
+    return 0
 
 
 def obtener_defensa_item(identificador):
     item = item_factory.crear(identificador)
-    if not isinstance(item, (Arma, Secundario, Armadura)):
+    if not isinstance(item, Armadura):
         return 0
     return item.defensa

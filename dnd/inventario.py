@@ -1,7 +1,9 @@
 """Inventario y equipamiento serializables por slot de guardado."""
 
-from item import Arma, Armadura, Consumible, Secundario
+from combat_formulas import calcular_mitigacion_armadura
+from item import Arma, Armadura, Consumible, Material, Secundario
 from item_factory import ALIASES_LEGACY, item_factory
+from pasiva_factory import pasiva_factory
 
 
 SLOTS_EQUIPO = (
@@ -127,6 +129,24 @@ class Inventario:
             total += getattr(item, "defensa", 0)
         return total
 
+    def armadura_equipo(self):
+        """Suma solo la protección de las piezas de armadura equipadas."""
+        total = 0
+        for item_id in self._equipamiento.values():
+            if not item_id:
+                continue
+            item = item_factory.crear(item_id)
+            if isinstance(item, Armadura):
+                total += item.defensa
+        return total
+
+    def peso_equipo(self):
+        return sum(
+            getattr(item_factory.crear(item_id), "peso", 0)
+            for item_id in self._equipamiento.values()
+            if item_id
+        )
+
     def bonificaciones_atributos(self):
         total = {"fuerza": 0, "destreza": 0, "constitucion": 0}
         for item_id in self._equipamiento.values():
@@ -172,17 +192,38 @@ class Inventario:
         resultado = {}
         for slot, item_id in self._equipamiento.items():
             item = item_factory.crear(item_id) if item_id else None
-            resultado[slot] = (
-                {
+            if item:
+                datos = {
                     "id": item.id,
                     "nombre": item.nombre,
                     "clase": item.__class__.__name__.lower(),
-                    "defensa": getattr(item, "defensa", 0),
                     "bonificaciones": dict(getattr(item, "bonificaciones", {})),
                 }
-                if item
-                else None
-            )
+                if isinstance(item, Armadura):
+                    datos["defensa"] = item.defensa
+                    datos["mitigacion"] = calcular_mitigacion_armadura(
+                        item.defensa
+                    )
+                    datos["peso"] = item.peso
+                    datos["durabilidad"] = item.durabilidad
+                elif isinstance(item, Secundario):
+                    datos.update(
+                        tier=item.tier,
+                        probabilidad_bloqueo=item.probabilidad_bloqueo,
+                        porcentaje_dano_bloqueado=item.porcentaje_dano_bloqueado,
+                        peso=item.peso,
+                        durabilidad=item.durabilidad,
+                    )
+                elif isinstance(item, Arma):
+                    pasiva = pasiva_factory.para_arma(item)
+                    datos.update(
+                        tier=item.tier,
+                        dos_manos=item.dos_manos,
+                        pasiva_nombre=pasiva.nombre if pasiva else None,
+                    )
+                resultado[slot] = datos
+            else:
+                resultado[slot] = None
         return resultado
 
     def estado(self, personaje=None):
@@ -200,19 +241,54 @@ class Inventario:
             if isinstance(item, (Arma, Secundario, Armadura)):
                 datos.update(
                     slot=self._slot_de(item),
-                    defensa=item.defensa,
                     requisitos=dict(item.requisitos),
-                    puede_equipar=not personaje or item.cumple_requisitos(personaje),
+                    puede_equipar=(
+                        not personaje
+                        or item.cumple_requisitos(personaje)
+                    ),
                 )
+            if isinstance(item, Armadura):
+                datos["defensa"] = item.defensa
+                datos["mitigacion"] = calcular_mitigacion_armadura(item.defensa)
+                datos["peso"] = item.peso
+                datos["durabilidad"] = item.durabilidad
             if isinstance(item, Arma):
+                pasiva = pasiva_factory.para_arma(item)
                 datos.update(
                     tipo_arma=item.tipo_arma,
+                    tier=item.tier,
                     ataque=list(item.ataque),
                     dos_manos=item.dos_manos,
+                    estadistica_escalado=item.estadistica_escalado,
+                    crecimiento_por_punto=item.crecimiento_por_punto,
+                    pasiva=(
+                        {
+                            "nombre": pasiva.nombre,
+                            "descripcion": pasiva.descripcion,
+                            "efecto": pasiva.efecto,
+                            "valor": pasiva.valor,
+                            "probabilidad": pasiva.probabilidad,
+                            "dano_sangrado": pasiva.dano_sangrado,
+                            "numero_ataques": pasiva.numero_ataques,
+                        }
+                        if pasiva
+                        else None
+                    ),
                 )
             elif isinstance(item, Secundario):
-                datos.update(tipo_secundario=item.tipo_secundario)
+                datos.update(
+                    tipo_secundario=item.tipo_secundario,
+                    tier=item.tier,
+                    probabilidad_bloqueo=item.probabilidad_bloqueo,
+                    porcentaje_dano_bloqueado=item.porcentaje_dano_bloqueado,
+                    peso=item.peso,
+                    durabilidad=item.durabilidad,
+                )
             elif isinstance(item, Armadura):
                 datos.update(bonificaciones=dict(item.bonificaciones))
+            elif isinstance(item, Consumible):
+                datos.update(efecto=item.efecto, valor=item.valor)
+            elif isinstance(item, Material):
+                datos["descripcion"] = item.descripcion
             resultado.append(datos)
         return resultado

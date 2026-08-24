@@ -1,18 +1,25 @@
-from combat_formulas import calcular_evasion, calcular_velocidad
+from combat_formulas import (
+    calcular_evasion,
+    calcular_penalizaciones_peso,
+    calcular_velocidad,
+)
 from habilidades import habilidad_factory
 from inventario import Inventario
 from items import calcular_factor_arma
+from pasiva_factory import pasiva_factory
 
 
 class Personaje:
     """Estadísticas y fórmulas propias del personaje, sin datos de equipo."""
 
     SALUD_BASE = 50
-    DANO_BASE = 4
+    DANO_BASE = 2
     DEFENSA_BASE = 2
     VELOCIDAD_BASE = 10
     ESCALADO_CONSTITUCION = 0.20
     NIVEL_MAXIMO = 20
+    CAPACIDAD_PESO_BASE = 8
+    CAPACIDAD_PESO_POR_CONSTITUCION = 4
 
     def __init__(self, nombre, arma, stats):
         self.nombre = nombre
@@ -42,6 +49,12 @@ class Personaje:
     def arma(self):
         arma = self.inventario.arma_equipada
         return arma.nombre if arma else None
+
+    @property
+    def pasiva_arma(self):
+        """Pasiva correspondiente al tipo y tier del arma equipada."""
+        arma = self.inventario.arma_equipada
+        return pasiva_factory.para_arma(arma) if arma else None
 
     @arma.setter
     def arma(self, identificador):
@@ -89,14 +102,35 @@ class Personaje:
 
     @property
     def velocidad(self):
-        return calcular_velocidad(self.VELOCIDAD_BASE, self.destreza_total)
+        velocidad = calcular_velocidad(self.VELOCIDAD_BASE, self.destreza_total)
+        return max(0, velocidad - self.penalizaciones_peso["velocidad"])
 
     @property
     def evasion(self):
-        return min(
+        evasion = min(
             1.0,
             calcular_evasion(self.destreza_total)
             + self.bonus_pasivo_habilidad("evasion"),
+        )
+        return max(0.0, evasion - self.penalizaciones_peso["evasion"])
+
+    @property
+    def peso_equipado(self):
+        return self.inventario.peso_equipo()
+
+    @property
+    def capacidad_peso(self):
+        return (
+            self.CAPACIDAD_PESO_BASE
+            + max(0, self.constitucion_total - 1)
+            * self.CAPACIDAD_PESO_POR_CONSTITUCION
+        )
+
+    @property
+    def penalizaciones_peso(self):
+        return calcular_penalizaciones_peso(
+            self.peso_equipado,
+            self.capacidad_peso,
         )
 
     def bonus_pasivo_habilidad(self, tipo_efecto):

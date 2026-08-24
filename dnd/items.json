@@ -8,12 +8,12 @@
       "estadistica_escalado": "fuerza",
       "crecimiento_por_punto": 0.25,
       "tier": 1,
+      "pasiva_id": "critico_espada",
       "inicial": true,
       "ataque": [
-        5,
-        10
+        3,
+        5
       ],
-      "defensa": 1,
       "dos manos": false,
       "precio": 50,
       "requisitos": {
@@ -28,12 +28,12 @@
       "estadistica_escalado": "destreza",
       "crecimiento_por_punto": 0.2,
       "tier": 1,
+      "pasiva_id": "doble_ataque_sangrado_daga",
       "inicial": true,
       "ataque": [
-        4,
-        8
+        2,
+        4
       ],
-      "defensa": 1,
       "dos manos": true,
       "precio": 50,
       "requisitos": {
@@ -48,13 +48,13 @@
       "estadistica_escalado": "fuerza",
       "crecimiento_por_punto": 0.2,
       "tier": 1,
+      "pasiva_id": "ignorar_defensa_maza",
       "inicial": true,
       "ataque": [
-        6,
-        13
+        4,
+        7
       ],
-      "defensa": 1,
-      "dos manos": false,
+      "dos manos": true,
       "precio": 50,
       "requisitos": {
         "fuerza": 1
@@ -68,14 +68,14 @@
       "estadistica_escalado": "fuerza",
       "crecimiento_por_punto": 0.2,
       "tier": 2,
+      "pasiva_id": "ignorar_defensa_maza",
       "inicial": false,
       "ataque": [
-        14,
-        21
+        6,
+        13
       ],
-      "defensa": 2,
-      "dos manos": false,
-      "precio": 90,
+      "dos manos": true,
+      "precio": 70,
       "requisitos": {
         "fuerza": 3
       }
@@ -87,15 +87,15 @@
       "tipo_arma": "daga",
       "estadistica_escalado": "destreza",
       "crecimiento_por_punto": 0.2,
-      "tier": 3,
+      "tier": 2,
+      "pasiva_id": "doble_ataque_sangrado_daga",
       "inicial": false,
       "ataque": [
-        10,
-        14
+        4,
+        8
       ],
-      "defensa": 8,
       "dos manos": true,
-      "precio": 110,
+      "precio": 70,
       "requisitos": {
         "destreza": 3
       }
@@ -105,8 +105,10 @@
       "nombre": "Escudo de hierro",
       "clase": "secundario",
       "tipo_secundario": "escudo",
-      "defensa": 5,
-      "precio": 45,
+      "tier": 1,
+      "probabilidad_bloqueo": 0.15,
+      "porcentaje_dano_bloqueado": 0.1,
+      "precio": 25,
       "requisitos": {
         "fuerza": 1
       },
@@ -119,65 +121,57 @@
       "nombre": "Casco de hierro",
       "clase": "armadura",
       "slot": "casco",
-      "defensa": 2,
-      "precio": 35,
+      "defensa": 1,
+      "precio": 15,
       "requisitos": {
         "constitucion": 1
       },
-      "peso": 2.5,
+      "peso": 2.0,
       "durabilidad": 100,
-      "bonificaciones": {
-        "constitucion": 1
-      }
+      "bonificaciones": {}
     },
     {
       "id": "peto_hierro",
       "nombre": "Peto de hierro",
       "clase": "armadura",
       "slot": "pecho",
-      "defensa": 5,
-      "precio": 75,
+      "defensa": 2,
+      "precio": 25,
       "requisitos": {
-        "fuerza": 2,
-        "constitucion": 2
-      },
-      "peso": 8.0,
-      "durabilidad": 100,
-      "bonificaciones": {
+        "fuerza": 1,
         "constitucion": 1
-      }
+      },
+      "peso": 4.0,
+      "durabilidad": 100,
+      "bonificaciones": {}
     },
     {
       "id": "brazales_hierro",
       "nombre": "Brazales de hierro",
       "clase": "armadura",
       "slot": "brazos",
-      "defensa": 2,
-      "precio": 40,
+      "defensa": 1,
+      "precio": 20,
       "requisitos": {
         "fuerza": 1
       },
       "peso": 2.0,
       "durabilidad": 100,
-      "bonificaciones": {
-        "fuerza": 1
-      }
+      "bonificaciones": {}
     },
     {
       "id": "grebas_hierro",
       "nombre": "Grebas de hierro",
       "clase": "armadura",
       "slot": "piernas",
-      "defensa": 3,
-      "precio": 50,
+      "defensa": 1,
+      "precio": 20,
       "requisitos": {
         "destreza": 1
       },
-      "peso": 4.0,
+      "peso": 2.0,
       "durabilidad": 100,
-      "bonificaciones": {
-        "destreza": 1
-      }
+      "bonificaciones": {}
     },
     {
       "id": "pocion_pequena",

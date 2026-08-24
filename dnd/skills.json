@@ -35,6 +35,26 @@
       "nivel_maximo": 3
     },
     {
+      "id": "paso_veloz",
+      "nombre": "Paso veloz",
+      "descripcion": "Eleva la evasión hasta el final del siguiente turno enemigo sin consumir la acción.",
+      "atributo_escalado": "destreza",
+      "tipo_arma_requerida": "daga",
+      "tipo_efecto": "evasion_temporal",
+      "multiplicador_base": 0.0,
+      "bonus_dano_por_nivel": 0.0,
+      "efecto_base": 0.6,
+      "efecto_por_nivel": 0.1,
+      "efecto_por_atributo": 0.0,
+      "efecto_maximo": 0.9,
+      "costo_energia": 3,
+      "cooldown_turnos": 4,
+      "nivel_maximo": 3,
+      "causa_dano": false,
+      "duracion_turnos": 1,
+      "consume_accion": false
+    },
+    {
       "id": "golpe_aplastante",
       "nombre": "Golpe aplastante",
       "descripcion": "Golpea y puede aturdir al enemigo.",

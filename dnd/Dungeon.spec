@@ -8,6 +8,7 @@ analisis = Analysis(
         ("web", "web"),
         ("config.json", "."),
         ("items.json", "."),
+        ("pasivas.json", "."),
         ("skills.json", "."),
     ],
     hiddenimports=[],

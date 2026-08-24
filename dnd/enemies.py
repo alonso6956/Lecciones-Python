@@ -5,7 +5,7 @@ from combat_formulas import calcular_evasion, calcular_velocidad
 from habilidades import habilidad_factory
 from item import Arma, Secundario
 from item_factory import item_factory
-from items import calcular_factor_arma, obtener_defensa_item
+from items import calcular_factor_arma
 
 
 RAZAS = {
@@ -38,10 +38,8 @@ ARQUETIPOS = {
             "constitucion": 10,
         },
         "arma": "Morning Star",
-        "secundario": "Escudo de hierro",
         "habilidades": {
             "golpe_aplastante": 1,
-            "mitigar_dano": 1,
         },
     },
 }
@@ -75,6 +73,8 @@ class Enemigo:
     habilidades: dict = field(default_factory=dict)
     cooldowns_habilidad: dict = field(default_factory=dict)
     efectos_habilidad: dict = field(default_factory=dict)
+    sangrado_dano: int = 0
+    sangrado_turnos: int = 0
 
     def __post_init__(self):
         for habilidad_id in self.habilidades:
@@ -95,11 +95,8 @@ class Enemigo:
 
     @property
     def defensa_total(self):
-        return (
-            self.calcular_defensa_base()
-            + obtener_defensa_item(self.arma)
-            + (obtener_defensa_item(self.secundario) if self.secundario else 0)
-        )
+        # Armas y escudos no aportan armadura; el escudo bloquea por separado.
+        return self.calcular_defensa_base()
 
     @property
     def evasion(self):
@@ -144,10 +141,15 @@ class Enemigo:
             habilidad = habilidad_factory.crear(habilidad_id)
             if habilidad.tipo_efecto == "reduccion_dano":
                 valor = getattr(self, habilidad.atributo_escalado)
+                escudo = (
+                    item_factory.crear(self.secundario)
+                    if self.secundario
+                    else None
+                )
                 mayor = max(
                     mayor,
                     habilidad.calcular_efecto(
-                        self.nivel_habilidad(habilidad_id), valor
+                        self.nivel_habilidad(habilidad_id), valor, escudo
                     ),
                 )
         return mayor
@@ -171,7 +173,7 @@ def crear_enemigo(raza, arquetipo):
     }
     for estadistica, bonus in datos_arquetipo["bonificaciones"].items():
         stats[estadistica] += bonus
-    salud_maxima = round(18 * (1 + (stats["constitucion"] - 1) * 0.20))
+    salud_maxima = round(30 * (1 + (stats["constitucion"] - 1) * 0.20))
     return Enemigo(
         raza=raza,
         arquetipo=arquetipo,
