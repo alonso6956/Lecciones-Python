@@ -34,12 +34,12 @@ class Pasiva:
     def duracion_turnos(self):
         return int(self.parametros.get("duracion_turnos", 0))
 
-    def calcular_critico(self, dano_final, mitigacion_armadura):
-        """El crítico vuelve a respetar la mitigación de armadura."""
+    def calcular_critico(self, dano_bruto):
+        """Aplica el multiplicador crítico antes de las capas defensivas."""
         if self.efecto != "critico":
-            return dano_final
+            return dano_bruto
         multiplicador = float(self.parametros.get("multiplicador", 1.5))
-        return (dano_final * multiplicador) * (1 - mitigacion_armadura)
+        return dano_bruto * multiplicador
 
     def ignora_defensa(self, tirada):
         """Indica si la maza atraviesa armadura y bloqueo en este ataque."""

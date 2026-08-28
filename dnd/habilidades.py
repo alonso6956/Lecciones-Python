@@ -41,6 +41,13 @@ class Habilidad:
     def multiplicador_dano(self, nivel):
         return self.multiplicador_base * (1 + nivel * self.bonus_dano_por_nivel)
 
+    def bonus_probabilidad_bloqueo(self, nivel):
+        """Bono de bloqueo propio de Bloqueo y contraataque por nivel."""
+        if self.id != "bloqueo_contraataque":
+            return 0.0
+        nivel_efectivo = max(1, min(nivel, self.nivel_maximo))
+        return 0.20 + nivel_efectivo * 0.10
+
     def calcular_efecto(self, nivel, valor_atributo, escudo=None):
         if self.usa_mitigacion_escudo:
             porcentaje_bloqueado = getattr(
@@ -79,13 +86,18 @@ class Habilidad:
                 "realiza un ataque normal."
             )
         if self.id == "bloqueo_contraataque":
-            probabilidad = round(getattr(escudo, "probabilidad_bloqueo", 0) * 100)
+            probabilidad_base = getattr(escudo, "probabilidad_bloqueo", 0)
+            probabilidad_adicional = self.bonus_probabilidad_bloqueo(nivel)
+            probabilidad_total = round(
+                min(1.0, probabilidad_base + probabilidad_adicional) * 100
+            )
             bloqueado = round(
                 getattr(escudo, "porcentaje_dano_bloqueado", 0) * 100
             )
             return (
                 "Contraataca con el daño del arma y gana 5% de daño por "
-                f"punto de Constitución. Tiene {probabilidad}% de bloquear; "
+                f"punto de Constitución. Tiene {probabilidad_total}% de "
+                f"bloquear durante este ataque; "
                 f"al hacerlo obtiene {bloqueado}% de daño adicional."
             )
         if self.id == "mitigar_dano":
@@ -97,9 +109,13 @@ class Habilidad:
                 "de forma independiente de la armadura."
             )
         if self.id == "hack_slash":
+            dano_total = round(self.multiplicador_dano(nivel) * 300)
+            bonus_tercer_golpe = 5 + min(nivel, self.nivel_maximo) * 5
             return (
-                "Realiza 3 golpes de 50% de daño. El tercero gana entre 5% "
-                "y 20% de daño cuando el objetivo tiene 60% de vida o menos."
+                f"Realiza 3 ataques independientes que infligen {dano_total}% "
+                "de daño combinado y pueden ser críticos. Si el objetivo tiene "
+                f"30% de vida o menos, el tercer golpe gana "
+                f"{bonus_tercer_golpe}% de daño."
             )
         if self.id == "golpe_aplastante":
             dano = round(self.multiplicador_dano(nivel) * 100)
@@ -141,8 +157,9 @@ class HabilidadFactory:
         if bloqueo_contraataque:
             bloqueo_contraataque.update(
                 descripcion=(
-                    "Contraataca; si el escudo bloquea, suma como daño el "
-                    "porcentaje bloqueado. Escala 5% por punto de Constitución."
+                    "Contraataca con probabilidad de bloqueo aumentada; si "
+                    "bloquea, suma como daño el porcentaje bloqueado por el "
+                    "escudo. Escala 5% por punto de Constitución."
                 ),
                 tipo_efecto="bloqueo_contraataque",
                 efecto_base=0,

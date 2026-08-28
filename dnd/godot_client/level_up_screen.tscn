@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://buqq1r7vra1eq"]
+
+[ext_resource type="Script" uid="uid://c1f2g54wtpa4r" path="res://level_up_screen.gd" id="1_i5ge7"]
+
+[node name="LevelUpScreen" type="VBoxContainer" unique_id=292851817]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_i5ge7")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=1805058239]
+layout_mode = 2
+text = "Subida de nivel"
+horizontal_alignment = 1
+
+[node name="StatsContainer" type="HBoxContainer" parent="." unique_id=445435981]
+layout_mode = 2
+
+[node name="SkillsContainer" type="GridContainer" parent="." unique_id=1666790020]
+layout_mode = 2
+columns = 3

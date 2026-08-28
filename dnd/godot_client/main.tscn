@@ -1,0 +1,175 @@
+[gd_scene format=3 uid="uid://d3xjk0aenuxtn"]
+
+[ext_resource type="Script" uid="uid://cddxwfhx0g4u1" path="res://main.gd" id="1_ig7tw"]
+[ext_resource type="Script" uid="uid://bxq2jdr81qnk2" path="res://combat_screen.gd" id="2_0xm2m"]
+[ext_resource type="PackedScene" uid="uid://b756sw40fwhjx" path="res://main_menu_screen.tscn" id="2_4c57u"]
+[ext_resource type="PackedScene" uid="uid://bterr8jbxb0vs" path="res://character_creation_screen.tscn" id="3_efxa6"]
+[ext_resource type="PackedScene" uid="uid://dvbenq7hxr1wa" path="res://combatant_view.tscn" id="3_h2yge"]
+[ext_resource type="Texture2D" uid="uid://dgas3ojfc5cq3" path="res://assets/test_player.png" id="4_1bvp3"]
+[ext_resource type="Texture2D" uid="uid://c6hfpt4wu3wwr" path="res://assets/test_enemy.png" id="5_lquwl"]
+[ext_resource type="PackedScene" uid="uid://sdryyv5ovgx2" path="res://transition_screen.tscn" id="6_7mycd"]
+[ext_resource type="PackedScene" uid="uid://6bmp3e0kdrlv" path="res://shop_screen.tscn" id="7_272bh"]
+[ext_resource type="PackedScene" uid="uid://buqq1r7vra1eq" path="res://level_up_screen.tscn" id="8_5vw27"]
+[ext_resource type="PackedScene" uid="uid://dtmok1r5bavrk" path="res://death_screen.tscn" id="9_kek77"]
+[ext_resource type="PackedScene" uid="uid://8bdgie5cjghp" path="res://inventory_screen.tscn" id="12_dg77c"]
+[ext_resource type="PackedScene" uid="uid://clcnayh7n6ux" path="res://save_slots_screen.tscn" id="13_ycdy4"]
+[ext_resource type="PackedScene" uid="uid://bw6ws7l13yuie" path="res://ending_screen.tscn" id="14_w48qg"]
+
+[node name="Main" type="Control" unique_id=1724929407]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 2.0
+offset_top = 1.0
+offset_right = 2.0
+offset_bottom = 42.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ig7tw")
+
+[node name="ConnectionStatus" type="Label" parent="." unique_id=1279042424]
+layout_mode = 0
+offset_right = 197.0
+offset_bottom = 23.0
+text = "Conectando con Python..."
+
+[node name="HTTPRequest" type="HTTPRequest" parent="." unique_id=767959336]
+
+[node name="ScreenContainer" type="VBoxContainer" parent="." unique_id=465473329]
+layout_mode = 0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 30.0
+offset_right = -20.0
+offset_bottom = -20.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MainMenuScreen" parent="ScreenContainer" unique_id=1605765085 instance=ExtResource("2_4c57u")]
+layout_mode = 2
+
+[node name="CharacterCreationScreen" parent="ScreenContainer" unique_id=1596125411 instance=ExtResource("3_efxa6")]
+layout_mode = 2
+
+[node name="TransitionScreen" parent="ScreenContainer" unique_id=1315813109 instance=ExtResource("6_7mycd")]
+layout_mode = 2
+
+[node name="CombatScreen" type="VBoxContainer" parent="ScreenContainer" unique_id=1361153724]
+layout_mode = 2
+script = ExtResource("2_0xm2m")
+
+[node name="PhaseLabel" type="Label" parent="ScreenContainer/CombatScreen" unique_id=1578020601]
+layout_mode = 2
+
+[node name="RoomLabel" type="Label" parent="ScreenContainer/CombatScreen" unique_id=1385811797]
+layout_mode = 2
+
+[node name="Battlefield" type="PanelContainer" parent="ScreenContainer/CombatScreen" unique_id=831156027]
+custom_minimum_size = Vector2(600, 320)
+layout_mode = 2
+
+[node name="CombatantsContainer" type="HBoxContainer" parent="ScreenContainer/CombatScreen/Battlefield" unique_id=1041972377]
+layout_mode = 2
+
+[node name="PlayerView" parent="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer" unique_id=411417006 instance=ExtResource("3_h2yge")]
+layout_mode = 2
+
+[node name="CharacterImage" parent="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer/PlayerView/VBoxContainer" parent_id_path=PackedInt32Array(411417006, 780832009) index="0" unique_id=1411734811]
+texture = ExtResource("4_1bvp3")
+
+[node name="BattleSpacer" type="Control" parent="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer" unique_id=1001863049]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EnemyView" parent="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer" unique_id=1546587630 instance=ExtResource("3_h2yge")]
+layout_mode = 2
+
+[node name="CharacterImage" parent="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer/EnemyView/VBoxContainer" parent_id_path=PackedInt32Array(1546587630, 780832009) index="0" unique_id=1411734811]
+texture = ExtResource("5_lquwl")
+
+[node name="PlayerPanel" type="VBoxContainer" parent="ScreenContainer/CombatScreen" unique_id=1729773133]
+layout_mode = 2
+
+[node name="PlayerName" type="Label" parent="ScreenContainer/CombatScreen/PlayerPanel" unique_id=1296652548]
+layout_mode = 2
+text = "Sin personaje"
+
+[node name="PlayerHealth" type="ProgressBar" parent="ScreenContainer/CombatScreen/PlayerPanel" unique_id=809393528]
+layout_mode = 2
+
+[node name="PlayerHealthText" type="Label" parent="ScreenContainer/CombatScreen/PlayerPanel" unique_id=487946273]
+layout_mode = 2
+
+[node name="PlayerEnergy" type="Label" parent="ScreenContainer/CombatScreen/PlayerPanel" unique_id=1487612918]
+layout_mode = 2
+
+[node name="EnemyPanel" type="VBoxContainer" parent="ScreenContainer/CombatScreen" unique_id=824542552]
+layout_mode = 2
+
+[node name="EnemyName" type="Label" parent="ScreenContainer/CombatScreen/EnemyPanel" unique_id=102207498]
+layout_mode = 2
+
+[node name="EnemyHealth" type="ProgressBar" parent="ScreenContainer/CombatScreen/EnemyPanel" unique_id=1905560877]
+layout_mode = 2
+
+[node name="EnemyHealthText" type="Label" parent="ScreenContainer/CombatScreen/EnemyPanel" unique_id=1399553917]
+layout_mode = 2
+
+[node name="EnemyIntent" type="Label" parent="ScreenContainer/CombatScreen/EnemyPanel" unique_id=1296105781]
+layout_mode = 2
+
+[node name="CombatLog" type="RichTextLabel" parent="ScreenContainer/CombatScreen" unique_id=591678085]
+layout_mode = 2
+
+[node name="ActionsContainer" type="GridContainer" parent="ScreenContainer/CombatScreen" unique_id=771433802]
+layout_mode = 2
+columns = 4
+
+[node name="RefreshButton" type="Button" parent="ScreenContainer/CombatScreen" unique_id=1496148410]
+layout_mode = 2
+text = "Actualizar estado"
+
+[node name="ShopScreen" parent="ScreenContainer" unique_id=1877877142 instance=ExtResource("7_272bh")]
+layout_mode = 2
+
+[node name="LevelUpScreen" parent="ScreenContainer" unique_id=292851817 instance=ExtResource("8_5vw27")]
+layout_mode = 2
+
+[node name="DeathScreen" parent="ScreenContainer" unique_id=996312407 instance=ExtResource("9_kek77")]
+layout_mode = 2
+
+[node name="InventoryScreen" parent="ScreenContainer" unique_id=1662003686 instance=ExtResource("12_dg77c")]
+layout_mode = 2
+
+[node name="SaveSlotsScreen" parent="ScreenContainer" unique_id=1198573335 instance=ExtResource("13_ycdy4")]
+layout_mode = 2
+
+[node name="EndingScreen" parent="ScreenContainer" unique_id=1214076030 instance=ExtResource("14_w48qg")]
+layout_mode = 2
+
+[node name="InventoryButton" type="Button" parent="." unique_id=96341201]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -140.0
+offset_top = 8.0
+offset_right = -20.0
+offset_bottom = 44.0
+grow_horizontal = 0
+text = "Inventario"
+
+[node name="SaveButton" type="Button" parent="." unique_id=1862660249]
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -260.0
+offset_top = 8.0
+offset_right = -150.0
+offset_bottom = 44.0
+grow_horizontal = 0
+text = "Guardar"
+
+[editable path="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer/PlayerView"]
+[editable path="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer/EnemyView"]

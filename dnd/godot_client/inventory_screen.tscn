@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://8bdgie5cjghp"]
+
+[ext_resource type="Script" uid="uid://f4wg7fm7j6oe" path="res://inventory_screen.gd" id="1_3dhud"]
+
+[node name="InventoryScreen" type="VBoxContainer" unique_id=1662003686]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_3dhud")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=1036319062]
+layout_mode = 2
+text = "Inventario"
+horizontal_alignment = 1
+
+[node name="InventoryContent" type="HBoxContainer" parent="." unique_id=879291731]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="EquipmentPanel" type="VBoxContainer" parent="InventoryContent" unique_id=1777317511]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EquipmentTitle" type="Label" parent="InventoryContent/EquipmentPanel" unique_id=1556493173]
+layout_mode = 2
+text = "Equipamiento"
+horizontal_alignment = 1
+
+[node name="EquipmentSlots" type="GridContainer" parent="InventoryContent/EquipmentPanel" unique_id=192650659]
+layout_mode = 2
+columns = 2
+
+[node name="ItemsPanel" type="VBoxContainer" parent="InventoryContent" unique_id=1837853563]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ItemsTitle" type="Label" parent="InventoryContent/ItemsPanel" unique_id=1824276959]
+layout_mode = 2
+text = "Objetos"
+horizontal_alignment = 1
+
+[node name="ItemsScroll" type="ScrollContainer" parent="InventoryContent/ItemsPanel" unique_id=433596794]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ItemsGrid" type="GridContainer" parent="InventoryContent/ItemsPanel/ItemsScroll" unique_id=657382976]
+layout_mode = 2
+columns = 3
+
+[node name="CloseButton" type="Button" parent="." unique_id=872081633]
+layout_mode = 2
+text = "Volver"

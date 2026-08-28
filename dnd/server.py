@@ -15,7 +15,7 @@ configuracion = cargar_configuracion()
 gestor_guardado = GestorGuardado(configuracion.data_dir)
 motor = MotorJuego()
 servidor_activo = None
-UI_VERSION = "17"
+UI_VERSION = "20"
 
 
 def configurar_logging():

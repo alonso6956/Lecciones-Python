@@ -1,12 +1,74 @@
 // Atajo para buscar un elemento del HTML por su id.
 const elemento = (id) => document.getElementById(id);
-const UI_VERSION = "17";
+const UI_VERSION = "20";
 
 // Última copia del estado enviada por Python.
 let estado = null;
 let menuPausaAbierto = false;
 let modoSlots = null;
 let coleccionAbierta = null;
+let botonConTooltip = null;
+let botonTooltipProgramado = null;
+let temporizadorTooltip = null;
+
+
+function ocultarTooltip(boton = null) {
+  if (
+    boton
+    && botonConTooltip !== boton
+    && botonTooltipProgramado !== boton
+  ) return;
+  if (temporizadorTooltip !== null) {
+    window.clearTimeout(temporizadorTooltip);
+    temporizadorTooltip = null;
+  }
+  botonTooltipProgramado = null;
+  if (!boton || botonConTooltip === boton) {
+    botonConTooltip = null;
+    elemento("buttonTooltip").hidden = true;
+  }
+}
+
+
+function mostrarTooltip(boton, texto) {
+  const tooltip = elemento("buttonTooltip");
+  const margen = 8;
+  temporizadorTooltip = null;
+  botonTooltipProgramado = null;
+  botonConTooltip = boton;
+  tooltip.textContent = texto;
+  tooltip.hidden = false;
+  tooltip.style.left = "0px";
+  tooltip.style.top = "0px";
+
+  const botonRect = boton.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+  const izquierda = Math.min(
+    window.innerWidth - tooltipRect.width - margen,
+    Math.max(margen, botonRect.right - tooltipRect.width),
+  );
+  const encima = botonRect.top - tooltipRect.height - margen;
+  const arriba = encima >= margen
+    ? encima
+    : Math.min(
+      window.innerHeight - tooltipRect.height - margen,
+      botonRect.bottom + margen,
+    );
+
+  tooltip.style.left = `${izquierda}px`;
+  tooltip.style.top = `${Math.max(margen, arriba)}px`;
+}
+
+
+function programarTooltip(boton, texto) {
+  ocultarTooltip();
+  botonTooltipProgramado = boton;
+  temporizadorTooltip = window.setTimeout(() => {
+    if (botonTooltipProgramado === boton && document.body.contains(boton)) {
+      mostrarTooltip(boton, texto);
+    }
+  }, 300);
+}
 
 
 function validarVersion(nuevoEstado) {
@@ -198,9 +260,14 @@ function crearBoton(texto, manejador, opciones = {}) {
   boton.disabled = opciones.deshabilitado || false;
 
   if (opciones.tooltip) {
-    boton.title = opciones.tooltip;
-    boton.dataset.tooltip = opciones.tooltip;
+    boton.setAttribute("aria-describedby", "buttonTooltip");
     boton.setAttribute("aria-label", `${texto}. ${opciones.tooltip}`);
+    boton.addEventListener("pointerenter", () => {
+      programarTooltip(boton, opciones.tooltip);
+    });
+    boton.addEventListener("pointerleave", () => ocultarTooltip(boton));
+    boton.addEventListener("focus", () => mostrarTooltip(boton, opciones.tooltip));
+    boton.addEventListener("blur", () => ocultarTooltip(boton));
   }
 
   if (opciones.primario) {
@@ -859,6 +926,7 @@ function renderizar() {
   if (!estado) {
     return;
   }
+  ocultarTooltip();
   if (estado.fase === "menu") {
     renderizarMenu();
     return;

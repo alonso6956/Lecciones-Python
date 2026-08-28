@@ -192,39 +192,30 @@ button {
   cursor: pointer;
   font: 700 12px var(--font-game);
   letter-spacing: 0.05em;
-  transition: 0.15s;
+  transition: none;
 }
 
-button[data-tooltip]::after {
-  position: absolute;
-  z-index: 20;
-  right: 0;
-  bottom: calc(100% + 9px);
+.button-tooltip {
+  position: fixed;
+  z-index: 200;
   width: min(300px, 80vw);
   padding: 10px;
   color: var(--ink);
   background: #0d0f10;
   border: 1px solid var(--gold);
-  content: attr(data-tooltip);
   font: 11px/1.5 var(--font-game);
   text-align: left;
   white-space: normal;
-  opacity: 0;
   pointer-events: none;
-  transform: translateY(5px);
-  transition: 0.15s;
 }
 
-button[data-tooltip]:hover::after,
-button[data-tooltip]:focus-visible::after {
-  opacity: 1;
-  transform: translateY(0);
+.button-tooltip[hidden] {
+  display: none;
 }
 
 button:hover:not(:disabled) {
   background: #373b3e;
   border-color: #777;
-  transform: translateY(-1px);
 }
 
 button:disabled {

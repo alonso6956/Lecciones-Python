@@ -1,0 +1,34 @@
+[gd_scene format=3 uid="uid://6bmp3e0kdrlv"]
+
+[ext_resource type="Script" uid="uid://cr4rvefgloiwy" path="res://shop_screen.gd" id="1_aclal"]
+
+[node name="ShopScreen" type="VBoxContainer" unique_id=1877877142]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_aclal")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=664251721]
+layout_mode = 2
+text = "Tienda"
+horizontal_alignment = 1
+
+[node name="GoldLabel" type="Label" parent="." unique_id=1790752702]
+layout_mode = 2
+text = "Oro: 0"
+
+[node name="ItemsScroll" type="ScrollContainer" parent="." unique_id=2014304364]
+custom_minimum_size = Vector2(0, 360)
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ItemsContainer" type="GridContainer" parent="ItemsScroll" unique_id=232243100]
+layout_mode = 2
+size_flags_horizontal = 3
+columns = 3
+
+[node name="ContinueButton" type="Button" parent="." unique_id=878797936]
+layout_mode = 2
+text = "Continuar"

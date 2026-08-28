@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://bw6ws7l13yuie"]
+
+[ext_resource type="Script" uid="uid://n1cjmtk06av6" path="res://ending_screen.gd" id="1_bcy6r"]
+
+[node name="EndingScreen" type="VBoxContainer" unique_id=1214076030]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_bcy6r")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=2074804296]
+layout_mode = 2
+text = "Fin de la expedición"
+horizontal_alignment = 1
+
+[node name="ResultLabel" type="Label" parent="." unique_id=2044961980]
+layout_mode = 2
+text = "Resultado"
+horizontal_alignment = 1
+
+[node name="MainMenuButton" type="Button" parent="." unique_id=228138514]
+layout_mode = 2
+text = "Volver al menú"
+
+[node name="ExitButton" type="Button" parent="." unique_id=242096313]
+layout_mode = 2
+text = "Salir"

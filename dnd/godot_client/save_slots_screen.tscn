@@ -1,0 +1,27 @@
+[gd_scene format=3 uid="uid://clcnayh7n6ux"]
+
+[ext_resource type="Script" uid="uid://dsx14t18k2g4u" path="res://save_slots_screen.gd" id="1_55lk8"]
+
+[node name="SaveSlotsScreen" type="VBoxContainer" unique_id=1198573335]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_55lk8")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=1981166508]
+layout_mode = 2
+text = "Partidas guardadas"
+horizontal_alignment = 1
+
+[node name="SlotsContainer" type="VBoxContainer" parent="." unique_id=1611341603]
+layout_mode = 2
+
+[node name="BackButton" type="Button" parent="." unique_id=1627495528]
+layout_mode = 2
+text = "Volver"
+
+[node name="OverwriteDialog" type="ConfirmationDialog" parent="." unique_id=231558039]
+ok_button_text = "Si"
+dialog_text = "¿Quieres sobrescribir esta partida?"

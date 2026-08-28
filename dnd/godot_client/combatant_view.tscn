@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://dvbenq7hxr1wa"]
+
+[ext_resource type="Script" uid="uid://bauaq0053dceg" path="res://combatant_view.gd" id="1_4b567"]
+
+[node name="CombatantView" type="PanelContainer" unique_id=411417006]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_4b567")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=780832009]
+layout_mode = 2
+
+[node name="CharacterImage" type="TextureRect" parent="VBoxContainer" unique_id=1411734811]
+custom_minimum_size = Vector2(220, 240)
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="VBoxContainer" unique_id=644667126]
+layout_mode = 2
+text = "Combatiente"
+horizontal_alignment = 1
+
+[node name="StatusContainer" type="HBoxContainer" parent="VBoxContainer" unique_id=1154821783]
+layout_mode = 2

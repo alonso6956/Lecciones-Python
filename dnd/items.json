@@ -121,8 +121,8 @@
       "nombre": "Casco de hierro",
       "clase": "armadura",
       "slot": "casco",
-      "defensa": 1,
-      "precio": 15,
+      "defensa": 3,
+      "precio": 25,
       "requisitos": {
         "constitucion": 1
       },
@@ -135,8 +135,8 @@
       "nombre": "Peto de hierro",
       "clase": "armadura",
       "slot": "pecho",
-      "defensa": 2,
-      "precio": 25,
+      "defensa": 4,
+      "precio": 30,
       "requisitos": {
         "fuerza": 1,
         "constitucion": 1
@@ -150,7 +150,7 @@
       "nombre": "Brazales de hierro",
       "clase": "armadura",
       "slot": "brazos",
-      "defensa": 1,
+      "defensa": 2,
       "precio": 20,
       "requisitos": {
         "fuerza": 1
@@ -164,7 +164,7 @@
       "nombre": "Grebas de hierro",
       "clase": "armadura",
       "slot": "piernas",
-      "defensa": 1,
+      "defensa": 2,
       "precio": 20,
       "requisitos": {
         "destreza": 1

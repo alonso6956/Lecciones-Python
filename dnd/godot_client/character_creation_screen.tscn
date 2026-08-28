@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://bterr8jbxb0vs"]
+
+[ext_resource type="Script" uid="uid://lip2oikoc56f" path="res://character_creation_screen.gd" id="1_k4t84"]
+
+[node name="CharacterCreationScreen" type="VBoxContainer" unique_id=1596125411]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_k4t84")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=112049008]
+layout_mode = 2
+text = "Crear personaje"
+horizontal_alignment = 1
+
+[node name="NameInput" type="LineEdit" parent="." unique_id=1488301881]
+layout_mode = 2
+placeholder_text = "Nombre del personaje"
+
+[node name="WeaponsContainer" type="GridContainer" parent="." unique_id=914889987]
+layout_mode = 2
+columns = 3
+
+[node name="StartButton" type="Button" parent="." unique_id=500881618]
+layout_mode = 2
+text = "Comenzar aventura"

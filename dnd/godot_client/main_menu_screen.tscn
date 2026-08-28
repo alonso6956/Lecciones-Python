@@ -1,0 +1,28 @@
+[gd_scene format=3 uid="uid://b756sw40fwhjx"]
+
+[ext_resource type="Script" uid="uid://dfnudpewxigpy" path="res://main_menu_screen.gd" id="1_vg6dg"]
+
+[node name="MainMenuScreen" type="VBoxContainer" unique_id=1605765085]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_vg6dg")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=723672479]
+layout_mode = 2
+text = "Dungeon"
+horizontal_alignment = 1
+
+[node name="NewGameButton" type="Button" parent="." unique_id=1898189105]
+layout_mode = 2
+text = "Nueva partida"
+
+[node name="LoadGameButton" type="Button" parent="." unique_id=441921049]
+layout_mode = 2
+text = "Cargar partida"
+
+[node name="ExitButton" type="Button" parent="." unique_id=883239305]
+layout_mode = 2
+text = "Salir"

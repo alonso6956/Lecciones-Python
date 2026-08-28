@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://dtmok1r5bavrk"]
+
+[ext_resource type="Script" uid="uid://lq1txcxdomx3" path="res://death_screen.gd" id="1_if853"]
+
+[node name="DeathScreen" type="VBoxContainer" unique_id=996312407]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_if853")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=1750836245]
+layout_mode = 2
+text = "Has muerto"
+horizontal_alignment = 1
+
+[node name="Reborn" type="Button" parent="." unique_id=1543265597]
+layout_mode = 2
+text = "Renacer en la habitación 1"
+
+[node name="Salir" type="Button" parent="." unique_id=88371901]
+layout_mode = 2
+text = "Salir"
