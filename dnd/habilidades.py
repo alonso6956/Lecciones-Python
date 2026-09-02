@@ -110,12 +110,11 @@ class Habilidad:
             )
         if self.id == "hack_slash":
             dano_total = round(self.multiplicador_dano(nivel) * 300)
-            bonus_tercer_golpe = 5 + min(nivel, self.nivel_maximo) * 5
             return (
                 f"Realiza 3 ataques independientes que infligen {dano_total}% "
-                "de daño combinado y pueden ser críticos. Si el objetivo tiene "
-                f"30% de vida o menos, el tercer golpe gana "
-                f"{bonus_tercer_golpe}% de daño."
+                "de daño combinado y pueden ser críticos. El tercer golpe gana "
+                "5% adicional si el objetivo está por 70% de vida, 10% si "
+                "está por 50% y 20% si está por 30%."
             )
         if self.id == "golpe_aplastante":
             dano = round(self.multiplicador_dano(nivel) * 100)

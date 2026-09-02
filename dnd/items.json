@@ -101,6 +101,26 @@
       }
     },
     {
+      "id": "espada_acero",
+      "nombre": "Espada de acero",
+      "clase": "arma",
+      "tipo_arma": "espada",
+      "estadistica_escalado": "fuerza",
+      "crecimiento_por_punto": 0.25,
+      "tier": 2,
+      "pasiva_id": "critico_espada",
+      "inicial": false,
+      "ataque": [
+        5,
+        8
+      ],
+      "dos manos": false,
+      "precio": 70,
+      "requisitos": {
+        "fuerza": 3
+      }
+    },
+    {
       "id": "escudo_hierro",
       "nombre": "Escudo de hierro",
       "clase": "secundario",

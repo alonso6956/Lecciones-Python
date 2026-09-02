@@ -5,7 +5,7 @@ FACTOR_MITIGACION_ARMADURA = 22.0
 EVASION_BASE = 0.05
 EVASION_POR_DESTREZA = 0.03
 VELOCIDAD_POR_DESTREZA = 1
-UMBRAL_HACK_SLASH = 0.30
+UMBRAL_HACK_SLASH = 0.70
 PESO_POR_PENALIZACION = 10
 EVASION_PERDIDA_POR_PESO = 0.05
 VELOCIDAD_PERDIDA_POR_PESO = 3
@@ -50,15 +50,19 @@ def aplicar_mitigacion_dano(dano_bruto, bloqueo_escudo=0, armadura=0):
 
 
 def calcular_bonus_hack_slash(salud_actual, salud_maxima, nivel_habilidad):
-    """Bonus del tercer golpe por nivel si el objetivo está al 30% o menos."""
+    """Bonus del tercer golpe según el porcentaje actual de vida del enemigo."""
+    del nivel_habilidad
     if salud_maxima <= 0:
         return 0.0
 
     porcentaje_salud = max(0.0, min(1.0, salud_actual / salud_maxima))
-    if porcentaje_salud > UMBRAL_HACK_SLASH:
+    if porcentaje_salud > 0.70:
         return 0.0
-    nivel = max(1, min(5, int(nivel_habilidad)))
-    return 0.05 + nivel * 0.05
+    if porcentaje_salud > 0.50:
+        return 0.05
+    if porcentaje_salud > 0.30:
+        return 0.10
+    return 0.20
 
 
 def calcular_dano_bloqueo_contraataque(
