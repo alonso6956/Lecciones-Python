@@ -9,11 +9,13 @@ from urllib.parse import urlparse
 from config import cargar_configuracion
 from game_engine import ErrorJuego, MotorJuego
 from persistence import ErrorGuardado, GestorGuardado
+from tactical_controller import PrototypeController
 
 
 configuracion = cargar_configuracion()
 gestor_guardado = GestorGuardado(configuracion.data_dir)
 motor = MotorJuego()
+prototipo = PrototypeController()
 servidor_activo = None
 UI_VERSION = "20"
 
@@ -87,6 +89,9 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
         return json.loads(self.rfile.read(longitud) or b"{}")
 
     def do_GET(self):
+        if urlparse(self.path).path == "/api/tactico/estado":
+            self._json(prototipo.estado())
+            return
         if urlparse(self.path).path == "/api/estado":
             self._json(self._estado())
             return
@@ -96,6 +101,22 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
         ruta = urlparse(self.path).path
         try:
             datos = self._leer_json()
+            if ruta.startswith("/api/tactico/"):
+                if not isinstance(datos, dict):
+                    raise ValueError("Se esperaba un objeto JSON.")
+                if ruta == "/api/tactico/preparar":
+                    estado_tactico = prototipo.preparar(datos.get("selecciones"))
+                elif ruta == "/api/tactico/iniciar":
+                    estado_tactico = prototipo.iniciar(datos.get("seed", 1234))
+                elif ruta == "/api/tactico/avanzar":
+                    estado_tactico = prototipo.avanzar()
+                elif ruta == "/api/tactico/reajustar":
+                    estado_tactico = prototipo.reajustar()
+                else:
+                    self._json({"error": "Ruta no encontrada."}, 404)
+                    return
+                self._json(estado_tactico)
+                return
             guardar = False
             if ruta == "/api/nueva":
                 gestor_guardado.desactivar_slot()

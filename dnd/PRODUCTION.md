@@ -1,5 +1,10 @@
 # Build de producción de Dungeon
 
+El vertical slice de preparación y combate automático se abre desde
+**Desafío táctico · Party de 3** en el menú web. Ver
+[TACTICAL_PROTOTYPE.md](TACTICAL_PROTOTYPE.md) para ejecución, escenario de
+derrota/reajuste/victoria, pruebas y simulaciones de balance.
+
 ## Generar el ejecutable
 
 Requisito exclusivo del equipo de desarrollo: Python 3.8 a 3.15 en Windows.

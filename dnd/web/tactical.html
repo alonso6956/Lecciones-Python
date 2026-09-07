@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Desafío táctico · Dungeon</title>
+  <link rel="stylesheet" href="/tactical.css">
+  <script src="/tactical.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="topbar">
+    <a href="/">← Dungeon / Menú</a><span>DESAFÍO TÁCTICO · 3 CONTRA 1</span>
+  </header>
+  <section class="intro">
+    <p class="eyebrow">EL GUARDIÁN VERDUGO</p>
+    <h1>La victoria empieza antes del combate.</h1>
+    <p>Prepara tu grupo, observa el combate automático y usa el diagnóstico para ajustar el siguiente intento.</p>
+    <ol class="steps" aria-label="Ciclo del desafío"><li id="stepPrep">01 · Preparación</li><li id="stepFight">02 · Combate</li><li id="stepResult">03 · Diagnóstico y reajuste</li></ol>
+  </section>
+  <p id="error" role="alert" hidden></p>
+  <button id="reconnect" hidden>Reanudar conexión</button>
+  <section class="encounter" aria-labelledby="bossTitle">
+    <div><p class="eyebrow">ENCUENTRO DE PRUEBA</p><h2 id="bossTitle">Guardián Verdugo</h2><p id="bossStats"></p></div>
+    <p><strong>Sangrado acumulativo</strong><br>Cada acción del jefe añade sangrado al grupo. Adaptación, limpieza y espadas ayudan a resistirlo.</p>
+    <p><strong>Escudo al 50% de vida</strong><br>Rómpelo en las siguientes dos rondas completas. Fallar provoca un ataque de castigo contra toda la party.</p>
+  </section>
+  <section id="preparation" aria-labelledby="prepTitle">
+    <div class="section-title"><div><p class="eyebrow">ROSTER FIJO · NIVEL 1</p><h2 id="prepTitle">Prepara a tus tres personajes</h2></div><span id="attempts"></span></div>
+    <p class="muted">Cada personaje ocupa una plaza. Puedes intercambiar sus posiciones y elegir su build, arma y prioridad. Cambiar el equipo no cuesta recursos.</p>
+    <fieldset id="prepFields"><legend class="sr-only">Configuración del grupo</legend><div id="party" class="party-grid"></div></fieldset>
+    <div class="launch">
+      <label>Semilla del encuentro <input id="seed" type="number" min="0" max="4294967295" step="1" value="1235"><small>La misma semilla permite comparar dos preparaciones.</small></label>
+      <button id="start" class="primary">Iniciar combate automático →</button>
+    </div>
+  </section>
+  <section id="battle" hidden aria-labelledby="fightTitle">
+    <div class="section-title"><h2 id="fightTitle">Combate automático</h2><label>Ritmo <select id="speed"><option value="600">Normal</option><option value="150">Rápido</option><option value="0">Instantáneo</option></select></label></div>
+    <p id="round" role="status"></p>
+    <div id="health" class="health-grid"></div>
+  </section>
+  <section id="result" hidden aria-labelledby="resultTitle" tabindex="-1">
+    <p class="eyebrow">RESULTADO DEL INTENTO</p><h2 id="resultTitle"></h2><p id="resultStats"></p>
+    <div id="diagnostic"></div>
+    <button id="adjust" class="primary">Reajustar y reintentar →</button>
+    <p class="muted">Conservarás tus selecciones. El próximo combate comienza con vida completa, sin estados ni cooldowns anteriores.</p>
+  </section>
+  <section id="logSection" hidden aria-labelledby="logTitle">
+    <div class="section-title"><h2 id="logTitle">Registro del combate</h2><button id="download">Descargar registro JSON</button></div>
+    <div id="log" role="log" aria-label="Eventos por ronda" aria-live="off"></div>
+  </section>
+  <footer>Preparación → Combate automático → Diagnóstico → Reajuste → Reintento</footer>
+</main>
+</body>
+</html>
