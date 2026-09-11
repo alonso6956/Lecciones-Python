@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tienda · Dungeon</title><link rel="stylesheet" href="/workshop.css"><link rel="stylesheet" href="/theme.css?v=1"><script src="/shop.js" defer></script></head>
+<body class="workshop-page"><main>
+<header><a href="/">← Menú principal</a><h1>El mercader</h1>
+<p>Prepara a tu personaje antes de entrar al dungeon. Cada compra se guarda inmediatamente. El equipo compatible se equipa automáticamente.</p></header>
+<p id="error" role="alert" hidden></p><p id="message" role="status"></p>
+<label>Personaje que compra <select id="character"></select></label><button id="refresh">Actualizar</button>
+<p>Oro disponible: <strong id="gold">0</strong></p>
+<section aria-labelledby="catalogTitle"><h2 id="catalogTitle">Provisiones y equipo</h2>
+<div class="filters"><label>Buscar <input id="search" type="search" placeholder="Nombre del producto"></label>
+<label>Categoría <select id="category"><option value="">Todas</option><option value="pociones">Pociones</option><option value="armas">Armas</option><option value="secundarios">Secundarios</option><option value="armaduras">Armaduras</option></select></label></div>
+<div id="products" class="panels"></div></section>
+<section aria-labelledby="inventoryTitle"><h2 id="inventoryTitle">Inventario preparado</h2><div id="inventory" class="panels"></div>
+<p>Para organizar o compartir objetos, vuelve al menú y abre el Taller y Vault.</p></section>
+</main></body></html>

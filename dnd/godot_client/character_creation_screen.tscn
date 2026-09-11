@@ -19,10 +19,10 @@ horizontal_alignment = 1
 layout_mode = 2
 placeholder_text = "Nombre del personaje"
 
-[node name="WeaponsContainer" type="GridContainer" parent="." unique_id=914889987]
-layout_mode = 2
-columns = 3
-
 [node name="StartButton" type="Button" parent="." unique_id=500881618]
 layout_mode = 2
 text = "Comenzar aventura"
+
+[node name="BackButton" type="Button" parent="."]
+layout_mode = 2
+text = "Volver al menú"

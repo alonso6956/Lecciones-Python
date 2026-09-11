@@ -31,11 +31,11 @@ class CombatLog:
 
 MENSAJES = {
     "sangrado": ("El sangrado fue la principal fuente de daño de la derrota.",
-                 "Prueba Adaptación y la prioridad Táctica para resistir y limpiar sangrado; la espada añade resistencia."),
+                 "Mejora el daño y entrena al grupo en el calabozo para acortar el combate."),
     "escudo_no_roto": ("El castigo por no romper el escudo dominó el daño recibido.",
-                      "Equipa una maza y prioriza la ruptura con el preset Táctica, especialmente en Bruno."),
+                      "Mejora el daño del grupo y elige equipo con mayor ruptura."),
     "dano_directo": ("La party no soportó el daño directo del encuentro.",
-                    "Revisa vida y defensa; la prioridad Táctica permite a Cora curar aliados heridos."),
+                    "Mejora Constitución y equipa armadura comprada en el calabozo."),
     "desgaste_general": ("No hubo una causa dominante clara.",
                          "Revisa las estadísticas y la preparación general del grupo."),
 }

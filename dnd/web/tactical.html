@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Desafío táctico · Dungeon</title>
   <link rel="stylesheet" href="/tactical.css">
+  <link rel="stylesheet" href="/theme.css?v=1">
   <script src="/tactical.js" defer></script>
 </head>
-<body>
+<body class="tactical-page">
 <main>
   <header class="topbar">
     <a href="/">← Dungeon / Menú</a><span>DESAFÍO TÁCTICO · 3 CONTRA 1</span>
   </header>
   <section class="intro">
-    <p class="eyebrow">EL GUARDIÁN VERDUGO</p>
+    <p class="eyebrow">EL GUARDIÁN</p>
     <h1>La victoria empieza antes del combate.</h1>
     <p>Prepara tu grupo, observa el combate automático y usa el diagnóstico para ajustar el siguiente intento.</p>
     <ol class="steps" aria-label="Ciclo del desafío"><li id="stepPrep">01 · Preparación</li><li id="stepFight">02 · Combate</li><li id="stepResult">03 · Diagnóstico y reajuste</li></ol>
@@ -21,14 +22,15 @@
   <p id="error" role="alert" hidden></p>
   <button id="reconnect" hidden>Reanudar conexión</button>
   <section class="encounter" aria-labelledby="bossTitle">
-    <div><p class="eyebrow">ENCUENTRO DE PRUEBA</p><h2 id="bossTitle">Guardián Verdugo</h2><p id="bossStats"></p></div>
-    <p><strong>Sangrado acumulativo</strong><br>Cada acción del jefe añade sangrado al grupo. Adaptación, limpieza y espadas ayudan a resistirlo.</p>
+    <div><p class="eyebrow">ENCUENTRO DE PRUEBA</p><h2 id="bossTitle">Guardián</h2><p id="bossStats"></p></div>
+    <p><strong>Sangrado acumulativo</strong><br>Cada acción del jefe añade sangrado al grupo. Los personajes y el jefe usan las estadísticas de Dungeon.</p>
     <p><strong>Escudo al 50% de vida</strong><br>Rómpelo en las siguientes dos rondas completas. Fallar provoca un ataque de castigo contra toda la party.</p>
   </section>
   <section id="preparation" aria-labelledby="prepTitle">
-    <div class="section-title"><div><p class="eyebrow">ROSTER FIJO · NIVEL 1</p><h2 id="prepTitle">Prepara a tus tres personajes</h2></div><span id="attempts"></span></div>
-    <p class="muted">Cada personaje ocupa una plaza. Puedes intercambiar sus posiciones y elegir su build, arma y prioridad. Cambiar el equipo no cuesta recursos.</p>
-    <fieldset id="prepFields"><legend class="sr-only">Configuración del grupo</legend><div id="party" class="party-grid"></div></fieldset>
+    <div class="section-title"><div><p class="eyebrow">PERSONAJES DEL CALABOZO</p><h2 id="prepTitle">Prepara a tus tres personajes</h2></div><span id="attempts"></span></div>
+    <p class="muted">Elige tres personajes del roster y sus armas compradas. Se usa el progreso del último guardado. Los árboles de habilidades de clase y chispa se incorporarán más adelante.</p>
+    <p id="lockMessage" role="status"></p>
+      <fieldset id="prepFields"><legend class="sr-only">Configuración del grupo</legend><div id="party" class="party-grid"></div></fieldset>
     <div class="launch">
       <label>Semilla del encuentro <input id="seed" type="number" min="0" max="4294967295" step="1" value="1235"><small>La misma semilla permite comparar dos preparaciones.</small></label>
       <button id="start" class="primary">Iniciar combate automático →</button>

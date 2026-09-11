@@ -39,24 +39,25 @@ func _ready() -> void:
 	combat_screen.action_requested.connect(_on_action_requested)
 	combat_screen.refresh_requested.connect(request_state)
 	transition_screen.continue_requested.connect(_on_continue_requested)
-	shop_screen.purchase_requested.connect(_on_purchase_requested)
-	shop_screen.continue_requested.connect(_on_shop_continue_requested)
 	level_up_screen.stat_requested.connect(_on_stat_requested)
 	level_up_screen.skill_requested.connect(_on_skill_requested)
+	level_up_screen.class_requested.connect(_on_class_requested)
 	death_screen.respawn_requested.connect(_on_respawn_requested)
 	death_screen.exit_requested.connect(_on_exit_requested)
 	main_menu_screen.new_game_requested.connect(_on_new_game_requested)
 	main_menu_screen.load_game_requested.connect(_on_load_game_requested)
 	main_menu_screen.exit_requested.connect(_on_menu_exit_requested)
 	character_creation_screen.start_requested.connect(_on_start_requested)
+	character_creation_screen.back_requested.connect(_on_ending_main_menu_requested)
 	inventory_button.pressed.connect(_on_inventory_pressed)
 	inventory_screen.close_requested.connect(_on_inventory_closed)
 	inventory_screen.equip_requested.connect(_on_equip_requested)
 	inventory_screen.unequip_requested.connect(_on_unequip_requested)
 	inventory_screen.use_requested.connect(_on_use_item_requested)
-	save_button.pressed.connect(_on_save_pressed)
+	save_button.pressed.connect(_on_pause_pressed)
 	save_slots_screen.slot_selected.connect(_on_slot_selected)
 	save_slots_screen.back_requested.connect(_on_slots_back_requested)
+	save_slots_screen.discard_requested.connect(_on_discard_requested)
 	ending_screen.main_menu_requested.connect(_on_ending_main_menu_requested)
 	ending_screen.exit_requested.connect(_on_ending_exit_requested)
 	request_state()
@@ -99,12 +100,6 @@ func _on_continue_requested() -> void:
 	_request_continue()
 
 
-func _on_shop_continue_requested() -> void:
-	shop_screen.set_request_pending(true)
-	connection_status.text = "Saliendo de la tienda..."
-	_request_continue()
-
-
 func _request_continue() -> void:
 	var error := http_request.request(
 		SERVER_URL + "/api/continuar",
@@ -116,24 +111,6 @@ func _request_continue() -> void:
 		transition_screen.set_request_pending(false)
 		shop_screen.set_request_pending(false)
 		connection_status.text = "No se pudo avanzar."
-
-
-func _on_purchase_requested(category: String, item_name: String) -> void:
-	shop_screen.set_request_pending(true)
-	connection_status.text = "Comprando %s..." % item_name
-	var body := JSON.stringify({
-		"categoria": category,
-		"nombre": item_name,
-	})
-	var error := http_request.request(
-		SERVER_URL + "/api/comprar",
-		["Content-Type: application/json"],
-		HTTPClient.METHOD_POST,
-		body,
-	)
-	if error != OK:
-		shop_screen.set_request_pending(false)
-		connection_status.text = "No se pudo realizar la compra."
 
 
 func _on_stat_requested(stat_name: String) -> void:
@@ -148,6 +125,11 @@ func _on_stat_requested(stat_name: String) -> void:
 	if error != OK:
 		level_up_screen.set_request_pending(false)
 		connection_status.text = "No se pudo mejorar la estadística."
+
+
+func _on_class_requested(class_id: String) -> void:
+	level_up_screen.set_request_pending(true)
+	_send_inventory_request("/api/clase", {"clase": class_id}, "Eligiendo clase...")
 
 
 func _on_skill_requested(skill_id: String) -> void:
@@ -196,8 +178,19 @@ func _on_load_game_requested() -> void:
 	_open_slots("load")
 
 
-func _on_save_pressed() -> void:
-	_open_slots("save")
+func _on_pause_pressed() -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.dialog_text = "¿Seguro que quieres salir? Los avances obtenidos desde el último guardado se perderán y regresarás a la habitación 1"
+	dialog.ok_button_text = "Salir al menú"
+	dialog.cancel_button_text = "Continuar"
+	add_child(dialog)
+	dialog.confirmed.connect(func():
+		_inventory_open = false
+		_slots_open = false
+		_on_ending_main_menu_requested()
+		dialog.queue_free())
+	dialog.canceled.connect(dialog.queue_free)
+	dialog.popup_centered(Vector2i(620, 180))
 
 
 func _open_slots(mode: String) -> void:
@@ -214,12 +207,23 @@ func _on_slots_back_requested() -> void:
 	_render_state(_current_state)
 
 
-func _on_slot_selected(mode: String, slot: int) -> void:
-	_slot_operation = mode
-	connection_status.text = (
-		"Guardando partida..." if mode == "save" else "Cargando partida..."
+func _on_discard_requested(character_id: String) -> void:
+	connection_status.text = "Descartando personaje..."
+	var error := http_request.request(
+		SERVER_URL + "/api/descartar",
+		["Content-Type: application/json"],
+		HTTPClient.METHOD_POST,
+		JSON.stringify({"id": character_id, "confirmado": true}),
 	)
-	var endpoint := "/api/guardar" if mode == "save" else "/api/cargar"
+	if error != OK:
+		save_slots_screen.set_request_pending(false)
+		connection_status.text = "No se pudo descartar el personaje."
+
+
+func _on_slot_selected(_mode: String, slot: int) -> void:
+	_slot_operation = "load"
+	connection_status.text = "Cargando personaje..."
+	var endpoint := "/api/cargar"
 	var error := http_request.request(
 		SERVER_URL + endpoint,
 		["Content-Type: application/json"],
@@ -232,12 +236,11 @@ func _on_slot_selected(mode: String, slot: int) -> void:
 		connection_status.text = "No se pudo acceder al guardado."
 
 
-func _on_start_requested(character_name: String, weapon_name: String) -> void:
+func _on_start_requested(character_name: String) -> void:
 	character_creation_screen.set_request_pending(true)
 	connection_status.text = "Entrando al calabozo..."
 	var body := JSON.stringify({
 		"nombre": character_name,
-		"arma": weapon_name,
 	})
 	var error := http_request.request(
 		SERVER_URL + "/api/iniciar",
@@ -277,6 +280,7 @@ func _on_ending_main_menu_requested() -> void:
 	if error != OK:
 		ending_screen.set_request_pending(false)
 		connection_status.text = "No se pudo volver al menú."
+		character_creation_screen.set_request_pending(false)
 
 
 func _request_exit() -> void:
@@ -436,7 +440,6 @@ func _render_state(state: Dictionary) -> void:
 	_current_state = state
 	var phase := str(state.get("fase", ""))
 	var is_transition := phase == "transicion"
-	var is_shop := phase == "tienda"
 	var is_level_up := phase == "nivel"
 	var is_death := phase == "muerte"
 	var is_menu := phase == "menu"
@@ -467,7 +470,6 @@ func _render_state(state: Dictionary) -> void:
 
 	combat_screen.visible = (
 		not is_transition
-		and not is_shop
 		and not is_level_up
 		and not is_death
 		and not is_menu
@@ -475,7 +477,7 @@ func _render_state(state: Dictionary) -> void:
 		and not is_ending
 	)
 	transition_screen.visible = is_transition
-	shop_screen.visible = is_shop
+	shop_screen.visible = false
 	level_up_screen.visible = is_level_up
 	death_screen.visible = is_death
 	main_menu_screen.visible = is_menu
@@ -497,8 +499,6 @@ func _render_state(state: Dictionary) -> void:
 		ending_screen.render_state(state)
 	elif is_transition:
 		transition_screen.render_state(state)
-	elif is_shop:
-		shop_screen.render_state(state)
 	elif is_level_up:
 		level_up_screen.render_state(state)
 	elif is_death:

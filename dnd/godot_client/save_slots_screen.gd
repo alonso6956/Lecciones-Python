@@ -3,98 +3,51 @@ extends VBoxContainer
 
 signal slot_selected(mode: String, slot: int)
 signal back_requested
+signal discard_requested(character_id: String)
 
 @onready var title_label: Label = $TitleLabel
 @onready var slots_container: VBoxContainer = $SlotsContainer
 @onready var back_button: Button = $BackButton
-@onready var overwrite_dialog: ConfirmationDialog = $OverwriteDialog
-
-var _mode := "load"
-var _pending_overwrite_slot := 0
-
 
 func _ready() -> void:
-	back_button.pressed.connect(_on_back_pressed)
-	overwrite_dialog.confirmed.connect(_on_overwrite_confirmed)
+	back_button.pressed.connect(func(): back_requested.emit())
 
-
-func show_slots(mode: String, state: Dictionary) -> void:
-	_mode = mode
-	title_label.text = "Guardar partida" if mode == "save" else "Cargar partida"
-	_render_slots(state.get("slots", []), state.get("slot_activo"))
+func show_slots(_mode: String, state: Dictionary) -> void:
+	title_label.text = "Elegir personaje · Nueva expedición desde la habitación 1"
+	for child in slots_container.get_children():
+		slots_container.remove_child(child)
+		child.queue_free()
+	for slot_data in state.get("slots", []):
+		var summary: Dictionary = slot_data.get("resumen", {})
+		var button := Button.new()
+		button.text = "%s · Nivel %s" % [summary.get("personaje", "Aventurero"), summary.get("nivel", 1)]
+		button.pressed.connect(_on_selected.bind(int(slot_data["slot"])))
+		slots_container.add_child(button)
+		var discard_button := Button.new()
+		discard_button.text = "Descartar a " + str(summary.get("personaje", "Aventurero"))
+		discard_button.pressed.connect(_confirm_discard.bind(str(slot_data["id"]), str(summary.get("personaje", "Aventurero"))))
+		slots_container.add_child(discard_button)
+	if state.get("slots", []).is_empty():
+		title_label.text = "No quedan personajes. Vuelve al menú para crear uno."
 	set_request_pending(false)
 
+func _confirm_discard(character_id: String, character_name: String) -> void:
+	var dialog := ConfirmationDialog.new()
+	dialog.dialog_text = "¿Descartar a %s? Se eliminará del roster con toda su experiencia, oro y equipo. Esta acción no se puede deshacer desde el juego." % character_name
+	dialog.ok_button_text = "Descartar personaje"
+	add_child(dialog)
+	dialog.confirmed.connect(func():
+		set_request_pending(true)
+		discard_requested.emit(character_id)
+		dialog.queue_free())
+	dialog.canceled.connect(dialog.queue_free)
+	dialog.popup_centered(Vector2i(620, 180))
+
+func _on_selected(slot: int) -> void:
+	set_request_pending(true)
+	slot_selected.emit("load", slot)
 
 func set_request_pending(pending: bool) -> void:
 	back_button.disabled = pending
 	for button in slots_container.get_children():
-		button.disabled = pending or bool(button.get_meta("blocked", false))
-
-
-func _render_slots(slots: Array, active_slot) -> void:
-	_clear_slots()
-	for slot_data in slots:
-		var slot := int(slot_data.get("slot", 0))
-		var occupied := bool(slot_data.get("ocupado", false))
-		var button := Button.new()
-		button.text = _slot_text(slot_data, slot == active_slot)
-		button.set_meta("occupied", occupied)
-		button.set_meta("blocked", _mode == "load" and not occupied)
-		button.disabled = bool(button.get_meta("blocked"))
-		button.pressed.connect(_on_slot_pressed.bind(slot, occupied))
-		slots_container.add_child(button)
-
-
-func _slot_text(slot_data: Dictionary, is_active: bool) -> String:
-	var slot := int(slot_data.get("slot", 0))
-	var prefix := "Slot %s" % slot
-	if is_active:
-		prefix += " · ACTIVO"
-	if not slot_data.get("ocupado", false):
-		return "%s\nVacío" % prefix
-
-	var summary: Dictionary = slot_data.get("resumen", {})
-	return "%s\n%s · Nivel %s · Habitación %s\n%s" % [
-		prefix,
-		summary.get("personaje", "Aventurero"),
-		summary.get("nivel", 1),
-		summary.get("habitacion", 1),
-		_format_date(str(summary.get("fecha", ""))),
-	]
-
-
-func _format_date(value: String) -> String:
-	if value.is_empty():
-		return "Fecha desconocida"
-	return value.replace("T", " ").replace("+00:00", " UTC")
-
-
-func _on_slot_pressed(slot: int, occupied: bool) -> void:
-	if _mode == "save" and occupied:
-		_pending_overwrite_slot = slot
-		overwrite_dialog.popup_centered()
-		return
-	_emit_slot(slot)
-
-
-func _on_overwrite_confirmed() -> void:
-	if _pending_overwrite_slot <= 0:
-		return
-	var slot := _pending_overwrite_slot
-	_pending_overwrite_slot = 0
-	_emit_slot(slot)
-
-
-func _emit_slot(slot: int) -> void:
-	set_request_pending(true)
-	slot_selected.emit(_mode, slot)
-
-
-func _on_back_pressed() -> void:
-	back_requested.emit()
-
-
-func _clear_slots() -> void:
-	for child in slots_container.get_children():
-		slots_container.remove_child(child)
-		child.queue_free()
+		button.disabled = pending

@@ -4,15 +4,17 @@ import random
 from dataclasses import asdict
 
 from combat_formulas import aplicar_mitigacion_dano
+from combat_stats import estadisticas_combate, tirar_dano
+from weapon_effects import armadura_tras_penetracion, modificar_golpe, activar_afijo
 from tactical_ai import AIController
 from tactical_diagnostics import CombatLog, DiagnosticEngine
 from tactical_models import ARMAS, BuildManager, Encuentro
 
 
 class CombatResolver:
-    def __init__(self, selecciones, encuentro=None, seed=1234):
+    def __init__(self, selecciones, encuentro=None, seed=1234, roster=None):
         self.encuentro = encuentro or Encuentro()
-        self.party = BuildManager.crear_party(selecciones)
+        self.party = BuildManager.crear_party(selecciones, roster)
         self.jefe = self.encuentro.crear_jefe()
         self.rng = random.Random(seed)
         self.seed = seed
@@ -34,6 +36,28 @@ class CombatResolver:
 
     def _evento(self, tipo, **datos):
         return self.log.registrar(self.ronda, tipo, **datos)
+
+    def _golpe(self, actor, objetivo, multiplicador=1):
+        """Tirada, evasión, crítico y bloqueo con las estadísticas de Dungeon."""
+        bruto = tirar_dano(actor.modelo, self.rng) * multiplicador
+        datos = estadisticas_combate(objetivo.modelo)
+        if self.rng.random() < datos["evasion"]:
+            self._evento("esquiva", actor_id=objetivo.id, objetivo_id=actor.id)
+            return 0
+        pasiva = getattr(actor.modelo, "pasiva_clase", None)
+        ignora = bool(pasiva and pasiva.efecto == "ignorar_defensa" and pasiva.ignora_defensa(self.rng.random()))
+        bloqueo = 0
+        if not ignora and datos["probabilidad_bloqueo"] and self.rng.random() < datos["probabilidad_bloqueo"]:
+            bloqueo = datos["porcentaje_dano_bloqueado"]
+            self._evento("bloqueo", actor_id=objetivo.id, objetivo_id=actor.id)
+        if pasiva and pasiva.efecto == "critico" and self.rng.random() < pasiva.probabilidad:
+            bruto = pasiva.calcular_critico(bruto)
+            self._evento("critico", actor_id=actor.id, objetivo_id=objetivo.id)
+        bruto, critico_arma = modificar_golpe(actor.modelo, objetivo.modelo, bruto, self.rng)
+        if critico_arma:
+            self._evento("critico", actor_id=actor.id, objetivo_id=objetivo.id)
+        return max(1, round(aplicar_mitigacion_dano(
+            bruto, bloqueo_escudo=bloqueo, armadura=0 if ignora else armadura_tras_penetracion(actor.modelo, objetivo.defensa))))
 
     def _dano(self, actor, objetivo, cantidad, tag):
         if not objetivo.vivo:
@@ -82,8 +106,9 @@ class CombatResolver:
         objetivo = vivos[(self.ronda - 1) % len(vivos)]
         self._evento("accion", actor_id=self.jefe.id, objetivo_id=objetivo.id,
                      metadata={"habilidad": "corte_sangriento"})
-        bruto = self.jefe.ataque * (0.65 if objetivo.estados.get("muralla") else 1)
-        self._dano(self.jefe, objetivo, aplicar_mitigacion_dano(bruto, armadura=objetivo.defensa), "fisico")
+        dano = self._golpe(self.jefe, objetivo, 0.65 if objetivo.estados.get("muralla") else 1)
+        if dano:
+            self._dano(self.jefe, objetivo, dano, "fisico")
         if self.resultado:
             return
         for aliado in self.party:
@@ -126,14 +151,11 @@ class CombatResolver:
             if actor.cooldowns.get("unica", 0):
                 raise RuntimeError("La IA eligió una habilidad en cooldown.")
             actor.cooldowns["unica"] = 3
-        critico = arma["critico"] > 0 and self.rng.random() < arma["critico"]
-        bruto = actor.ataque * multiplicador * (1.5 if critico else 1)
         if self.jefe.estados.get("vulnerable"):
-            bruto *= 1.35 if arma_id == "dagas_hierro" else 1.15
-        defensa = self.jefe.defensa * (0.65 if arma_id == "espada_hierro" else 1)
-        dano = aplicar_mitigacion_dano(bruto, armadura=defensa)
-        if critico:
-            self._evento("critico", actor_id=actor.id, objetivo_id=self.jefe.id)
+            multiplicador *= 1.15
+        dano = self._golpe(actor, self.jefe, multiplicador)
+        if not dano:
+            return
         if self.escudo > 0:
             factor = 4 if accion.tipo == "romper" else arma["ruptura"]
             factor *= 1.25 if actor.seleccion.build == "adaptacion" else 1
@@ -147,6 +169,9 @@ class CombatResolver:
                 self._evento("escudo_roto", actor_id=actor.id, objetivo_id=self.jefe.id, fuente_tag="ruptura")
         else:
             self._dano(actor, self.jefe, dano, "fisico")
+            efecto = activar_afijo(actor.modelo, self.jefe.modelo, self.rng)
+            if efecto:
+                self.jefe.modelo.efectos_arma[efecto]["actor_id"] = actor.id
 
     def paso(self):
         if self.resultado:
@@ -169,6 +194,15 @@ class CombatResolver:
                 continue
             if actor is self.jefe:
                 self._accion_jefe()
+                if not self.resultado:
+                    for efecto, estado in list(self.jefe.modelo.efectos_arma.items()):
+                        origen = next(a for a in self.party if a.id == estado["actor_id"])
+                        self._dano(origen, self.jefe, estado["dano"], efecto)
+                        estado["turnos"] -= 1
+                        if estado["turnos"] <= 0:
+                            del self.jefe.modelo.efectos_arma[efecto]
+                        if self.resultado:
+                            break
             else:
                 self._accion_aliado(actor)
         if not self.resultado and self.escudo > 0 and self.ronda >= self.escudo_vence:

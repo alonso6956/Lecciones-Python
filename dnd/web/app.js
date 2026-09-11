@@ -1,12 +1,14 @@
 // Atajo para buscar un elemento del HTML por su id.
 const elemento = (id) => document.getElementById(id);
-const UI_VERSION = "20";
+const UI_VERSION = "23";
 
 // Última copia del estado enviada por Python.
 let estado = null;
 let menuPausaAbierto = false;
 let modoSlots = null;
 let coleccionAbierta = null;
+let focoAntesColeccion = null;
+let solicitudEnCurso = false;
 let botonConTooltip = null;
 let botonTooltipProgramado = null;
 let temporizadorTooltip = null;
@@ -95,6 +97,14 @@ function validarVersion(nuevoEstado) {
 
 
 async function llamarApi(ruta, datos = {}) {
+  if (solicitudEnCurso) return false;
+  solicitudEnCurso = true;
+  try { return await ejecutarSolicitudApi(ruta, datos); }
+  finally { solicitudEnCurso = false; }
+}
+
+
+async function ejecutarSolicitudApi(ruta, datos = {}) {
   let respuesta;
   let resultado;
   try {
@@ -134,23 +144,12 @@ async function llamarApi(ruta, datos = {}) {
 }
 
 
-function formatearFecha(fecha) {
-  if (!fecha) return "Fecha desconocida";
-  return new Date(fecha).toLocaleString("es-PE", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-}
-
-
 function mostrarAccionesPausa() {
   modoSlots = null;
   elemento("pauseTitle").textContent = "Menú de pausa";
   elemento("pauseActions").classList.remove("hidden");
   elemento("slotPanel").classList.add("hidden");
-  elemento("pauseMessage").textContent = estado.slot_activo
-    ? `Guardado automático activo en el slot ${estado.slot_activo}.`
-    : "Selecciona Guardar partida para activar un slot.";
+  elemento("pauseMessage").textContent = "El progreso se guarda al avanzar de habitación o al morir.";
 }
 
 
@@ -161,39 +160,39 @@ function crearBotonSlot(datosSlot) {
   const fecha = document.createElement("small");
   boton.className = "slot-button";
   if (datosSlot.slot === estado.slot_activo) boton.classList.add("active");
-  titulo.textContent = `S${datosSlot.slot}`;
+  titulo.textContent = `Personaje ${datosSlot.slot}`;
 
   if (datosSlot.ocupado) {
     const datos = datosSlot.resumen;
     resumen.textContent = (
       `${datos.personaje} · Nivel ${datos.nivel} · Habitación ${datos.habitacion}`
     );
-    fecha.textContent = formatearFecha(datos.fecha);
+    fecha.textContent = "Progreso guardado · Empieza una nueva expedición";
   } else {
     resumen.textContent = datosSlot.error || "Slot vacío";
-    fecha.textContent = modoSlots === "guardar" ? "Disponible para guardar" : "";
+    fecha.textContent = "";
   }
 
   boton.append(titulo, resumen, fecha);
-  boton.disabled = modoSlots === "cargar" && !datosSlot.ocupado;
+  boton.disabled = !datosSlot.ocupado;
   boton.onclick = async () => {
-    if (
-      modoSlots === "guardar"
-      && datosSlot.ocupado
-      && !window.confirm(`¿Sobrescribir el slot ${datosSlot.slot}?`)
-    ) return;
-
-    const operacion = modoSlots;
-    const correcto = await llamarApi(operacion, { slot: datosSlot.slot });
-    if (!correcto) return;
-    if (operacion === "guardar") {
-      menuPausaAbierto = true;
-      mostrarAccionesPausa();
-    } else {
-      cerrarPausa();
-    }
+    const correcto = await llamarApi("cargar", {id: datosSlot.id});
+    if (correcto) cerrarPausa();
   };
-  return boton;
+  const fila = document.createElement("div");
+  const descartar = document.createElement("button");
+  descartar.textContent = "Descartar personaje";
+  descartar.disabled = !datosSlot.ocupado;
+  descartar.onclick = async () => {
+    const nombre = datosSlot.resumen.personaje;
+    if (!window.confirm(`¿Descartar a ${nombre}? Se eliminará del roster con toda su experiencia, oro y equipo. Esta acción no se puede deshacer desde el juego.`)) return;
+    descartar.disabled = true;
+    const correcto = await llamarApi("descartar", {id: datosSlot.id, confirmado: true});
+    if (correcto) mostrarSlots("cargar", true);
+    else descartar.disabled = false;
+  };
+  fila.append(boton, descartar);
+  return fila;
 }
 
 
@@ -203,13 +202,10 @@ function mostrarSlots(modo, desdeMenu = false) {
   elemento("pauseOverlay").classList.remove("hidden");
   elemento("pauseActions").classList.add("hidden");
   elemento("slotPanel").classList.remove("hidden");
-  elemento("pauseTitle").textContent = modo === "guardar"
-    ? "Guardar partida"
-    : "Cargar partida";
-  elemento("slotHelp").textContent = modo === "guardar"
-    ? "Elige dónde guardar. Un slot ocupado pedirá confirmación."
-    : "Elige una partida para continuar.";
+  elemento("pauseTitle").textContent = "Elegir personaje";
+  elemento("slotHelp").textContent = "Elige un personaje del roster. Comenzarás en la habitación 1.";
   elemento("slotList").replaceChildren(...estado.slots.map(crearBotonSlot));
+  if (!estado.slots.length) elemento("slotHelp").textContent = "No quedan personajes. Vuelve al menú para crear uno.";
   elemento("backPauseButton").onclick = () => {
     if (desdeMenu) cerrarPausa();
     else mostrarAccionesPausa();
@@ -232,24 +228,22 @@ function cerrarPausa() {
 }
 
 
-function abrirColeccion(tipo) {
-  coleccionAbierta = tipo;
-  const titulos = {
-    habilidades: "Habilidades",
-    inventario: "Inventario",
-    equipo: "Equipamiento activo",
-  };
-  elemento("collectionTitle").textContent = titulos[tipo];
-  elemento("skillsPanel").classList.toggle("hidden", tipo !== "habilidades");
-  elemento("inventoryPanel").classList.toggle("hidden", tipo !== "inventario");
-  elemento("equipmentPanel").classList.toggle("hidden", tipo !== "equipo");
+function abrirColeccion(tipo = "personaje") {
+  focoAntesColeccion = document.activeElement;
+  abrirGestionPersonaje("inventario");
+  renderizarFichaPersonaje(estado.jugador);
+  seleccionarPestanaPersonaje(tipo);
   elemento("collectionOverlay").classList.remove("hidden");
+  elemento("characterTabs").querySelector('[aria-selected="true"]').focus();
 }
 
 
 function cerrarColeccion() {
+  const estabaAbierta = Boolean(coleccionAbierta);
   coleccionAbierta = null;
   elemento("collectionOverlay").classList.add("hidden");
+  ocultarTooltip();
+  if (estabaAbierta && focoAntesColeccion?.isConnected) focoAntesColeccion.focus();
 }
 
 
@@ -285,6 +279,7 @@ function crearBoton(texto, manejador, opciones = {}) {
 
 
 async function salirAlMenuPrincipal() {
+  if (estado.jugador && !window.confirm("¿Seguro que quieres salir? Los avances obtenidos desde el último guardado se perderán y regresarás a la habitación 1")) return;
   const correcto = await llamarApi("reiniciar");
   if (correcto) cerrarPausa();
 }
@@ -305,31 +300,7 @@ function renderizarInicio() {
   elemento("start").classList.remove("hidden");
   elemento("game").classList.add("hidden");
 
-  const tarjetas = estado.armas_iniciales.map((arma, indice) => {
-    const seleccionada = indice === 0 ? "checked" : "";
-    return `
-      <label class="weapon">
-        <input
-          type="radio"
-          name="weapon"
-          value="${arma.nombre}"
-          ${seleccionada}
-        >
-        <article>
-          <h3>${arma.nombre}</h3>
-          <p>
-            Daño <b>${arma.ataque[0]}–${arma.ataque[1]}</b>
-          </p>
-          <p>
-            Escala con ${arma.tipo === "daga" ? "Destreza" : "Fuerza"}
-            · ${arma.dos_manos ? "Dos manos" : "Una mano"}.
-          </p>
-        </article>
-      </label>
-    `;
-  });
 
-  elemento("weapons").innerHTML = tarjetas.join("");
 }
 
 
@@ -339,17 +310,19 @@ function renderizarMenu() {
   elemento("game").classList.add("hidden");
   elemento("roomBadge").classList.add("hidden");
   elemento("pauseButton").classList.add("hidden");
-  elemento("skillsButton").classList.add("hidden");
-  elemento("inventoryButton").classList.add("hidden");
-  elemento("equipmentButton").classList.add("hidden");
+  elemento("characterButton").classList.add("hidden");
   cerrarColeccion();
   elemento("loadButton").disabled = !estado.guardado_disponible;
+  elemento("tacticalButton").disabled = !estado.tactico_disponible;
+  elemento("tacticalMessage").textContent = estado.mensaje_bloqueo_tactico || "";
+  elemento("menuMessage").textContent = [...(estado.registro || []), ...(estado.avisos_roster || [])].join(" ");
 }
 
 
 function renderizarPanel(jugador) {
   elemento("playerName").textContent = jugador.nombre;
   elemento("weaponName").textContent = jugador.arma;
+  elemento("className").textContent = `${jugador.clase_nombre} · ${jugador.chispa ? "Chispa latente" : "Sin chispa"}`;
   elemento("hpText").textContent = `${jugador.hp}/${jugador.salud_maxima}`;
   elemento("hpBar").style.width = porcentaje(
     jugador.hp,
@@ -405,6 +378,7 @@ function renderizarPanel(jugador) {
   renderizarHabilidades(jugador);
   renderizarInventario(jugador);
   renderizarEquipo(jugador);
+  renderizarFichaPersonaje(jugador);
 }
 
 
@@ -447,7 +421,7 @@ function renderizarEstadosActivos(jugador, enemigo) {
 
 function renderizarHabilidades(jugador) {
   elemento("skillPoints").textContent = jugador.puntos_habilidad;
-  const puedeMejorarAhora = !["menu", "inicio", "combate", "fin"].includes(
+  const puedeMejorarAhora = !["menu", "inicio", "combate", "muerte", "fin"].includes(
     estado.fase,
   );
   const tarjetas = jugador.habilidades.map((habilidad) => {
@@ -461,7 +435,7 @@ function renderizarHabilidades(jugador) {
     nivel.textContent = `${habilidad.nivel}/${habilidad.nivel_maximo}`;
     detalle.textContent = habilidad.activa
       ? `ACTIVA · ${habilidad.turnos_activos} turno(s) restante(s)`
-      : `${habilidad.descripcion} Requiere ${habilidad.arma_requerida}. `
+      : `${habilidad.descripcion} Clase: ${jugador.clase_nombre}. `
         + `Coste: ${habilidad.costo_energia} de energía. `
         + `Cooldown: ${habilidad.cooldown_turnos} turnos.`;
     tarjeta.classList.toggle("skill-active-card", habilidad.activa);
@@ -478,6 +452,11 @@ function renderizarHabilidades(jugador) {
     tarjeta.append(encabezado, detalle, boton);
     return tarjeta;
   });
+  if (!tarjetas.length) {
+    const mensaje = document.createElement("p");
+    mensaje.textContent = jugador.clase ? "El árbol de habilidades de esta clase aún no está disponible." : "Elige una clase al alcanzar el nivel 10 para acceder a sus habilidades cuando estén disponibles.";
+    tarjetas.push(mensaje);
+  }
   elemento("skillList").replaceChildren(...tarjetas);
 }
 
@@ -495,23 +474,6 @@ function requisitosObjeto(requisitos = {}) {
 }
 
 
-function descripcionPasiva(pasiva) {
-  if (!pasiva) return "Sin pasiva";
-  if (pasiva.efecto === "critico") {
-    return `Pasiva ${pasiva.nombre}: ${Math.round(pasiva.probabilidad * 100)}% `
-      + "de probabilidad de golpe crítico";
-  }
-  if (pasiva.efecto === "ignorar_defensa") {
-    return `Pasiva ${pasiva.nombre}: ${Math.round(pasiva.probabilidad * 100)}% `
-      + "de ignorar armadura y escudo";
-  }
-  if (pasiva.efecto === "doble_ataque_sangrado") {
-    return `Pasiva ${pasiva.nombre}: ${pasiva.numero_ataques} ataques; `
-      + `${pasiva.dano_sangrado} de sangrado por impacto`;
-  }
-  return `Pasiva ${pasiva.nombre}: ${pasiva.descripcion}`;
-}
-
 
 function descripcionObjeto(item) {
   const detalles = [];
@@ -525,7 +487,6 @@ function descripcionObjeto(item) {
     detalles.push(
       `Escala con ${atributo}: +${Math.round(item.crecimiento_por_punto * 100)}% por punto`,
     );
-    detalles.push(descripcionPasiva(item.pasiva));
   } else if (item.clase === "secundario") {
     detalles.push(`Tier ${item.tier}`);
     detalles.push(`${Math.round(item.probabilidad_bloqueo * 100)}% de bloqueo`);
@@ -549,122 +510,12 @@ function descripcionObjeto(item) {
 }
 
 
-function renderizarInventario(jugador) {
-  const puedeGestionar = !["menu", "inicio", "combate", "fin"].includes(
-    estado.fase,
-  );
-  const puedeUsarConsumible = !["menu", "inicio", "fin"].includes(estado.fase);
-  const filas = jugador.inventario.map((item) => {
-    const fila = document.createElement("article");
-    const informacion = document.createElement("div");
-    const nombre = document.createElement("strong");
-    const detalle = document.createElement("small");
-    const boton = document.createElement("button");
-    nombre.textContent = `${item.nombre} ×${item.cantidad}`;
-    detalle.textContent = descripcionObjeto(item);
-    informacion.append(nombre, detalle);
-    if (["arma", "secundario", "armadura"].includes(item.clase)) {
-      boton.textContent = item.equipado ? "Equipado" : "Equipar";
-      boton.disabled = item.equipado || !puedeGestionar || !item.puede_equipar;
-      if (!item.puede_equipar) boton.title = "No cumples los requisitos";
-      boton.onclick = () => llamarApi("equipar", { item: item.id });
-    } else if (item.clase === "consumible") {
-      boton.textContent = estado.fase === "combate" ? "Usar (acción)" : "Usar";
-      boton.disabled = !puedeUsarConsumible || jugador.hp >= jugador.salud_maxima;
-      boton.onclick = () => llamarApi("usar-item", { item: item.id });
-    } else {
-      boton.textContent = "Material";
-      boton.disabled = true;
-    }
-    fila.append(informacion, boton);
-    return fila;
-  });
-  elemento("inventoryList").replaceChildren(...filas);
-}
-
-
-function renderizarEquipo(jugador) {
-  const nombresSlot = {
-    mano_principal: "Mano principal",
-    mano_secundaria: "Mano secundaria",
-    casco: "Casco",
-    pecho: "Pecho",
-    brazos: "Brazos",
-    piernas: "Piernas",
-  };
-  const puedeGestionar = !["menu", "inicio", "combate", "fin"].includes(
-    estado.fase,
-  );
-  elemento("equipmentDefense").textContent = (
-    jugador.armadura_equipo
-  );
-
-  const filas = Object.entries(nombresSlot).map(([slot, etiqueta]) => {
-    const actual = jugador.equipamiento[slot];
-    const fila = document.createElement("article");
-    const texto = document.createElement("div");
-    const titulo = document.createElement("strong");
-    const detalle = document.createElement("small");
-    const selector = document.createElement("select");
-    const desequipar = document.createElement("button");
-    titulo.textContent = etiqueta;
-    if (!actual) {
-      detalle.textContent = "Vacío";
-    } else if (actual.clase === "armadura") {
-      detalle.textContent = (
-        `${actual.nombre} · ${actual.defensa} de armadura`
-      );
-    } else {
-      detalle.textContent = actual.nombre;
-    }
-    texto.append(titulo, detalle);
-
-    const candidatos = jugador.inventario.filter((item) => item.slot === slot);
-    if (!actual && candidatos.length) {
-      const opcionVacia = document.createElement("option");
-      opcionVacia.value = "";
-      opcionVacia.textContent = "Elegir objeto…";
-      opcionVacia.selected = true;
-      selector.appendChild(opcionVacia);
-    }
-    for (const item of candidatos) {
-      const opcion = document.createElement("option");
-      opcion.value = item.id;
-      opcion.textContent = item.nombre;
-      opcion.selected = actual?.id === item.id;
-      opcion.disabled = !item.puede_equipar;
-      selector.appendChild(opcion);
-    }
-    if (!candidatos.length) {
-      const opcion = document.createElement("option");
-      opcion.textContent = "Sin objetos disponibles";
-      selector.appendChild(opcion);
-    }
-    selector.disabled = !puedeGestionar || candidatos.length < 1;
-    selector.onchange = () => {
-      if (selector.value) llamarApi("equipar", { item: selector.value });
-    };
-
-    desequipar.textContent = "Desequipar";
-    desequipar.disabled = !puedeGestionar || !actual || slot === "mano_principal";
-    desequipar.title = slot === "mano_principal"
-      ? "La mano principal debe conservar un arma"
-      : "";
-    desequipar.onclick = () => llamarApi("desequipar", { slot });
-    fila.append(texto, selector, desequipar);
-    return fila;
-  });
-  elemento("equipmentList").replaceChildren(...filas);
-}
-
-
 function obtenerTituloDelEncuentro(enemigo) {
   if (estado.jugador?.hp <= 0) return "Has muerto";
   const titulos = {
     combate: enemigo?.nombre,
     nivel: "Una decisión importante",
     transicion: enemigo ? "Victoria" : "El camino continúa",
-    tienda: "El mercader",
     muerte: "Has muerto",
     fin: estado.resultado === "victoria"
       ? "Has escapado"
@@ -687,9 +538,6 @@ function obtenerDescripcionDelEncuentro(enemigo) {
   }
   if (estado.fase === "nivel") {
     return "Elige cómo quieres desarrollar tu personaje.";
-  }
-  if (estado.fase === "tienda") {
-    return "Gasta tu oro con cuidado; el camino aún es largo.";
   }
   if (estado.fase === "muerte") {
     return "La expedición termina aquí, pero tu aventurero conserva su progreso.";
@@ -746,18 +594,12 @@ function agregarAccionesDeCombate(jugador) {
   for (const habilidad of jugador.habilidades) {
     const bloqueada = !habilidad.desbloqueada;
     const requisitoIncumplido = !habilidad.cumple_requisito;
-    const armaIncorrecta = !habilidad.cumple_tipo_equipo;
-    const manoSecundariaOcupada = (
-      habilidad.requiere_mano_secundaria_libre
-      && !habilidad.mano_secundaria_libre
-    );
     const sinEnergia = jugador.energia < habilidad.costo_energia;
     const enCooldown = habilidad.cooldown > 0;
     const activa = habilidad.activa;
     const motivos = [];
     if (bloqueada) motivos.push("habilidad bloqueada");
-    if (armaIncorrecta) motivos.push(`requiere ${habilidad.arma_requerida}`);
-    if (manoSecundariaOcupada) motivos.push("requiere la mano secundaria libre");
+    if (requisitoIncumplido) motivos.push("requiere una habilidad aprendida de tu clase");
     if (sinEnergia) motivos.push("energía insuficiente");
     if (enCooldown) motivos.push(`cooldown: ${habilidad.cooldown} turno(s)`);
     if (activa) {
@@ -789,6 +631,7 @@ function agregarAccionesDeCombate(jugador) {
 
 
 function agregarAccionesDeNivel() {
+  if (estado.jugador.puntos_estadistica < 1) return;
   crearBoton(
     "+1 Fuerza",
     () => llamarApi("nivel", { estadistica: "fuerza" }),
@@ -812,53 +655,14 @@ function agregarAccionesDeNivel() {
 }
 
 
-function agregarAccionesDeTienda(jugador) {
-  const categorias = [
-    ["pociones", "POCIONES"],
-    ["armas", "ARMAS"],
-    ["secundarios", "MANO SECUNDARIA"],
-    ["armaduras", "ARMADURAS"],
-  ];
-
-  for (const [categoria, etiqueta] of categorias) {
-    const titulo = document.createElement("p");
-    titulo.classList.add("shop-title");
-    titulo.textContent = etiqueta;
-    elemento("actions").appendChild(titulo);
-
-    const productos = Object.entries(estado.tienda[categoria]);
-    for (const [nombre, producto] of productos) {
-      const clases = {
-        armas: "arma",
-        secundarios: "secundario",
-        armaduras: "armadura",
-        pociones: "consumible",
-      };
-      crearBoton(
-        `${nombre} · ${producto.precio} oro`,
-        () => llamarApi("comprar", { categoria, nombre }),
-        {
-          deshabilitado: jugador.oro < producto.precio,
-          tooltip: descripcionObjeto({
-            ...producto,
-            clase: clases[categoria],
-          }),
-        },
-      );
-    }
-  }
-
-  crearBoton(
-    "Salir de la tienda",
-    () => llamarApi("continuar"),
-    { primario: true, completo: true },
-  );
-}
-
-
 function renderizarAcciones() {
   elemento("actions").replaceChildren();
   const jugador = estado.jugador;
+  if (jugador?.clase_pendiente && ["nivel", "transicion"].includes(estado.fase)) {
+    for (const [id, clase] of Object.entries(estado.clases)) {
+      crearBoton(`Elegir ${clase.nombre}`, () => llamarApi("clase", {clase: id}), {primario: true});
+    }
+  }
 
   if (estado.fase === "combate") {
     agregarAccionesDeCombate(jugador);
@@ -870,18 +674,12 @@ function renderizarAcciones() {
       () => llamarApi("continuar"),
       { primario: true, completo: true },
     );
-  } else if (estado.fase === "tienda") {
-    agregarAccionesDeTienda(jugador);
+
   } else if (estado.fase === "muerte" || jugador?.hp <= 0) {
     crearBoton(
       "Renacer en la habitación 1",
       () => llamarApi("respawn"),
       { primario: true, completo: true },
-    );
-    crearBoton(
-      "Guardar antes de renacer",
-      () => mostrarSlots("guardar"),
-      { completo: true },
     );
     crearBoton(
       "Salir al menú principal",
@@ -890,14 +688,9 @@ function renderizarAcciones() {
     );
   } else if (estado.fase === "fin") {
     crearBoton(
-      "Nueva partida",
-      () => llamarApi("nueva"),
+      "Volver al menú",
+      salirAlMenuPrincipal,
       { primario: true, completo: true },
-    );
-    crearBoton(
-      "Menú principal",
-      () => llamarApi("reiniciar"),
-      { completo: true },
     );
   }
 }
@@ -934,9 +727,7 @@ function renderizar() {
   elemento("menu").classList.add("hidden");
   if (estado.fase === "inicio") {
     elemento("pauseButton").classList.add("hidden");
-    elemento("skillsButton").classList.add("hidden");
-    elemento("inventoryButton").classList.add("hidden");
-    elemento("equipmentButton").classList.add("hidden");
+    elemento("characterButton").classList.add("hidden");
     cerrarColeccion();
     renderizarInicio();
     return;
@@ -947,9 +738,7 @@ function renderizar() {
   elemento("game").classList.toggle("death-transition", estado.fase === "muerte");
   elemento("roomBadge").classList.remove("hidden");
   elemento("pauseButton").classList.remove("hidden");
-  elemento("skillsButton").classList.remove("hidden");
-  elemento("inventoryButton").classList.remove("hidden");
-  elemento("equipmentButton").classList.remove("hidden");
+  elemento("characterButton").classList.remove("hidden");
   renderizarPanel(estado.jugador);
   renderizarEncuentro();
   renderizarAcciones();
@@ -958,26 +747,19 @@ function renderizar() {
 
 
 elemento("startButton").onclick = () => {
-  const armaSeleccionada = document.querySelector(
-    'input[name="weapon"]:checked',
-  );
-  llamarApi("iniciar", {
-    nombre: elemento("name").value,
-    arma: armaSeleccionada?.value || "",
-  });
+  llamarApi("iniciar", {nombre: elemento("name").value});
 };
 
+elemento("cancelCreationButton").onclick = salirAlMenuPrincipal;
 
+
+elemento("tacticalButton").onclick = () => { window.location.href = "/tactical.html"; };
 elemento("newButton").onclick = () => llamarApi("nueva");
 elemento("loadButton").onclick = () => mostrarSlots("cargar", true);
 elemento("pauseButton").onclick = abrirPausa;
-elemento("skillsButton").onclick = () => abrirColeccion("habilidades");
-elemento("inventoryButton").onclick = () => abrirColeccion("inventario");
-elemento("equipmentButton").onclick = () => abrirColeccion("equipo");
+elemento("characterButton").onclick = () => abrirColeccion();
 elemento("closeCollectionButton").onclick = cerrarColeccion;
 elemento("resumeButton").onclick = cerrarPausa;
-elemento("saveButton").onclick = () => mostrarSlots("guardar");
-elemento("pauseLoadButton").onclick = () => mostrarSlots("cargar");
 elemento("mainMenuButton").onclick = salirAlMenuPrincipal;
 elemento("exitButton").onclick = async () => {
   try {
@@ -996,8 +778,17 @@ elemento("name").addEventListener("keydown", (evento) => {
 });
 
 document.addEventListener("keydown", (evento) => {
+  if (coleccionAbierta && evento.key === "Tab") {
+    const botones = [...elemento("collectionPanel").querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), [tabindex="0"]')].filter(n => n.tabIndex !== -1 && n.getClientRects().length);
+    const primero = botones[0], ultimo = botones[botones.length - 1];
+    if (!primero) { evento.preventDefault(); elemento("collectionPanel").focus(); }
+    else if (evento.shiftKey && (document.activeElement === primero || !elemento("collectionPanel").contains(document.activeElement))) { evento.preventDefault(); ultimo.focus(); }
+    else if (!evento.shiftKey && (document.activeElement === ultimo || !elemento("collectionPanel").contains(document.activeElement))) { evento.preventDefault(); primero.focus(); }
+    return;
+  }
   if (evento.key !== "Escape") return;
-  if (coleccionAbierta) cerrarColeccion();
+  if (estado?.fase === "inicio") salirAlMenuPrincipal();
+  else if (coleccionAbierta) cerrarColeccion();
   else if (menuPausaAbierto) cerrarPausa();
   else if (estado?.jugador && !["menu", "inicio"].includes(estado.fase)) abrirPausa();
 });

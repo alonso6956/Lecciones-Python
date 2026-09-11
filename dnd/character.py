@@ -6,6 +6,8 @@ from combat_formulas import (
 from habilidades import habilidad_factory
 from inventario import Inventario
 from items import calcular_factor_arma
+from uuid import uuid4
+from progression import CLASES, comprobar_hitos, habilidades_de_clase
 from pasiva_factory import pasiva_factory
 
 
@@ -17,11 +19,16 @@ class Personaje:
     DEFENSA_BASE = 10
     VELOCIDAD_BASE = 10
     ESCALADO_CONSTITUCION = 0.20
-    NIVEL_MAXIMO = 20
+    ESCALADO_VIDA_NIVEL = 0.10  # 10% de SALUD_BASE: +5 de vida por nivel ganado.
+    ENERGIA_BASE = 3
+    NIVEL_MAXIMO = 30
     CAPACIDAD_PESO_BASE = 8
     CAPACIDAD_PESO_POR_CONSTITUCION = 4
 
     def __init__(self, nombre, arma, stats):
+        self.id = uuid4().hex
+        self.clase = None
+        self.chispa = None
         self.nombre = nombre
         self.fuerza = stats["fuerza"]
         self.destreza = stats["destreza"]
@@ -29,32 +36,32 @@ class Personaje:
         self.inventario = Inventario()
         arma_inicial = self.inventario.recolectar(arma)
         self.inventario.equipar(arma_inicial.id, self)
-        self.habilidades = {
-            habilidad.id: 0 for habilidad in habilidad_factory.todas()
-        }
-        habilidad_inicial = habilidad_factory.para_tipo_arma(arma_inicial.tipo_arma)
-        if habilidad_inicial:
-            self.habilidades[habilidad_inicial.id] = 1
+        self.habilidades = {}
         self.puntos_estadistica = 0
         self.puntos_habilidad = 0
         self.mitigar_dano_activo = False
         self.mitigar_dano_turnos = 0
+        self.nivel = 1
         self.salud_maxima = self.calcular_salud_maxima()
         self.hp = self.salud_maxima
-        self.nivel = 1
         self.oro = 0
         self.exp = 0
+        self.crafting_exp = 0
+
+    @property
+    def crafting_tier(self):
+        from crafting import crafting_data
+        return sum(self.crafting_exp >= umbral for umbral in crafting_data()["experiencia_por_tier"])
 
     @property
     def arma(self):
         arma = self.inventario.arma_equipada
-        return arma.nombre if arma else None
+        return (arma.id if arma.id.startswith("craft_") else arma.nombre) if arma else None
 
     @property
-    def pasiva_arma(self):
-        """Pasiva correspondiente al tipo y tier del arma equipada."""
-        arma = self.inventario.arma_equipada
-        return pasiva_factory.para_arma(arma) if arma else None
+    def pasiva_clase(self):
+        pasivas = pasiva_factory.para_clase(self.clase)
+        return pasivas[0] if pasivas else None
 
     @arma.setter
     def arma(self, identificador):
@@ -70,7 +77,12 @@ class Personaje:
             self.estadistica_total("constitucion"),
             self.ESCALADO_CONSTITUCION,
         )
-        return round(self.SALUD_BASE * (1 + bonus))
+        vida_por_nivel = self.SALUD_BASE * self.ESCALADO_VIDA_NIVEL * (self.nivel - 1)
+        return round(self.SALUD_BASE * (1 + bonus) + vida_por_nivel)
+
+    @property
+    def energia_maxima(self):
+        return self.ENERGIA_BASE + self.nivel // 10
 
     def estadistica_total(self, estadistica):
         bonus = self.inventario.bonificaciones_atributos().get(estadistica, 0)
@@ -103,6 +115,7 @@ class Personaje:
     @property
     def velocidad(self):
         velocidad = calcular_velocidad(self.VELOCIDAD_BASE, self.destreza_total)
+        velocidad = round(velocidad * self.inventario.arma_equipada.velocidad)
         return max(0, velocidad - self.penalizaciones_peso["velocidad"])
 
     @property
@@ -134,7 +147,7 @@ class Personaje:
         )
 
     def bonus_pasivo_habilidad(self, tipo_efecto):
-        """Aplica el incremento secundario por nivel con el arma requerida."""
+        """Aplica los incrementos de las habilidades de clase aprendidas."""
         total = 0
         for habilidad in habilidad_factory.todas():
             nivel = self.nivel_habilidad(habilidad.id)
@@ -168,12 +181,24 @@ class Personaje:
         if self.nivel >= self.NIVEL_MAXIMO:
             raise ValueError("El personaje ya alcanzó el nivel máximo.")
         self.nivel += 1
+        salud_anterior = self.salud_maxima
+        self.salud_maxima = self.calcular_salud_maxima()
+        self.hp += self.salud_maxima - salud_anterior
         self.puntos_estadistica += 1
         self.puntos_habilidad += 1
         if estadistica:
             self.asignar_atributo(estadistica)
+        return comprobar_hitos(self)
+
+    def elegir_clase(self, clase):
+        if not isinstance(clase, str) or self.nivel < 10 or self.clase is not None or clase not in CLASES:
+            raise ValueError("No puedes elegir esa clase ahora.")
+        self.clase = clase
+        # TODO: Integrar estadísticas y habilidades; por ahora solo es una etiqueta.
 
     def mejorar_habilidad(self, habilidad_id):
+        if habilidad_id not in habilidades_de_clase(self.clase):
+            raise ValueError("La habilidad no pertenece al árbol de tu clase.")
         habilidad = habilidad_factory.crear(habilidad_id)
         nivel = self.habilidades.get(habilidad_id, 0)
         if self.puntos_habilidad < 1:
@@ -206,15 +231,8 @@ class Personaje:
         )
 
     def cumple_requisitos_habilidad(self, habilidad_id):
-        habilidad = habilidad_factory.crear(habilidad_id)
-        tiene_equipo = self.inventario.cumple_tipo_equipo(
-            habilidad.tipo_arma_requerida
-        )
-        mano_libre = (
-            not habilidad.requiere_mano_secundaria_libre
-            or self.inventario.secundario_equipado is None
-        )
-        return tiene_equipo and mano_libre
+        habilidad_factory.crear(habilidad_id)
+        return habilidad_id in habilidades_de_clase(self.clase)
 
     def recalcular_por_equipo(self, salud_maxima_anterior=None):
         anterior = (

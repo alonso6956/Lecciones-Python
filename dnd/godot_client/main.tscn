@@ -169,7 +169,7 @@ offset_top = 8.0
 offset_right = -150.0
 offset_bottom = 44.0
 grow_horizontal = 0
-text = "Guardar"
+text = "Pausa"
 
 [editable path="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer/PlayerView"]
 [editable path="ScreenContainer/CombatScreen/Battlefield/CombatantsContainer/EnemyView"]

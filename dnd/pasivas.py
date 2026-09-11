@@ -1,4 +1,4 @@
-"""Modelos de las pasivas otorgadas por el arma equipada."""
+"""Efectos reutilizables para los futuros árboles de clase."""
 
 from dataclasses import dataclass, field
 
@@ -8,7 +8,6 @@ class Pasiva:
     id: str
     nombre: str
     descripcion: str
-    tipo_arma: str
     efecto: str
     tier: int
     valor: float
@@ -42,5 +41,5 @@ class Pasiva:
         return dano_bruto * multiplicador
 
     def ignora_defensa(self, tirada):
-        """Indica si la maza atraviesa armadura y bloqueo en este ataque."""
+        """Indica si el efecto atraviesa armadura y bloqueo en este ataque."""
         return self.efecto == "ignorar_defensa" and tirada < self.probabilidad

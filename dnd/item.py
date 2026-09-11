@@ -19,8 +19,19 @@ class Arma(Item):
     inicial: bool
     ataque: tuple
     dos_manos: bool = False
-    pasiva_id: str = ""
     requisitos: dict = field(default_factory=dict)
+    peso: float = 0
+    durabilidad: int = 100
+    velocidad: float = 1.0
+    critico: float = 0.0
+    penetracion: float = 0.0
+    alcance: int = 1
+    material: str = ""
+    perfil: str = ""
+    afijo: dict = field(default_factory=dict)
+    presupuesto: float = 0
+    distribucion: tuple = ()
+    bonus_sobrenatural: float = 0.0
 
     def cumple_requisitos(self, personaje):
         return all(

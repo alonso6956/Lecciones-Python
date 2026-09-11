@@ -1,0 +1,265 @@
+/* Tema compartido: fantasía oscura, metal envejecido y botones biselados. */
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Press+Start+2P&display=swap");
+
+:root {
+  color-scheme: dark;
+  --font-game: "Cinzel", Georgia, serif;
+  --font-pixel: "Press Start 2P", monospace;
+  --bg: #0b0b0e;
+  --panel: #14141c;
+  --panel-light: #1c1c26;
+  --ink: #e0d5c1;
+  --muted: #b0a591;
+  --line: #4a3b2c;
+  --gold: #c4a06a;
+  --gold-bright: #f3e5ab;
+  --red: #a84439;
+  --red-light: #d45649;
+  --green: #94b487;
+  font-family: var(--font-game);
+  background: var(--bg);
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image: radial-gradient(#1a1a24 1px, transparent 1px);
+  background-size: 20px 20px;
+  font: 400 16px/1.65 var(--font-game);
+}
+
+body > main { min-width: 0; width: min(1240px, 100%); }
+body > .shell { width: min(1180px, calc(100% - 40px)); }
+::selection { background: #5a432c; color: #fff4d1; }
+a { color: #d5b57e; text-underline-offset: 4px; }
+a:hover { color: var(--gold-bright); }
+h1, h2, h3 { font-family: var(--font-game); line-height: 1.3; overflow-wrap: anywhere; }
+h1, h2, .menu-title {
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgb(243 229 171 / 25%), 2px 2px 0 #000;
+}
+h3 { color: #e8c990; }
+
+.eyebrow, .kicker, .menu-subtitle {
+  color: var(--gold);
+  font-size: .75rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.topbar, .brand, footer { border-color: var(--line); }
+.topbar, .brand .eyebrow { font-family: var(--font-pixel); font-size: .6rem; line-height: 1.9; }
+.topbar a { font-family: var(--font-game); font-size: .85rem; }
+.intro > p:not(.eyebrow), .muted, small { color: var(--muted); }
+
+/* Les damos el mismo marco a menús, modales, combate y estaciones. */
+.game-panel, .card, .hero, .health-card,
+.tactical-page .encounter, .tactical-page #result, .workshop-page section {
+  position: relative;
+  background: var(--panel);
+  border: 4px solid var(--line);
+  outline: 2px solid #8b6b3e;
+  border-radius: 4px;
+  box-shadow: 0 0 25px rgb(0 0 0 / 80%), inset 0 0 15px rgb(0 0 0 / 60%);
+}
+.shell:has(> .menu:not(.hidden)) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100svh;
+}
+.shell:has(> .menu:not(.hidden)) > .brand { display: none; }
+.start.menu {
+  width: min(440px, 100%);
+  padding: 30px;
+  margin: 24px auto;
+  text-align: center;
+}
+.menu .menu-title { font-size: 2.2rem; margin: 0 0 25px; }
+.menu .menu-subtitle { margin-bottom: 5px; }
+.menu-actions { gap: 14px; }
+.menu-actions > p:empty { display: none; }
+.menu-message, #tacticalMessage { font-size: .78rem; line-height: 1.65; color: var(--muted); }
+.start:not(.menu) { width: min(760px, 100%); }
+
+/* Las acciones secundarias usan acero; las primarias usan rojo oscuro. */
+button, a.btn-game {
+  --button-top: #2a2d32;
+  --button-bottom: #17191c;
+  --button-border: #454a52;
+  --button-base: #0d0e10;
+  --button-hover-top: #3a3f47;
+  --button-hover-bottom: #22252a;
+  --button-hover-border: #6a727d;
+  --button-glow: rgb(255 255 255 / 10%);
+  position: relative;
+  padding: 14px 20px;
+  min-height: 44px;
+  color: #f0e6d2;
+  background: linear-gradient(180deg, var(--button-top), var(--button-bottom));
+  border: 2px solid var(--button-border);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 20%), 0 4px 0 var(--button-base);
+  font: 700 .85rem/1.45 var(--font-game);
+  text-shadow: 1px 1px 2px #000;
+  letter-spacing: .025em;
+  cursor: pointer;
+  transition: background .1s ease, border-color .1s ease, box-shadow .1s ease, transform .1s ease;
+  overflow-wrap: anywhere;
+}
+a.btn-game { display: block; text-align: center; text-decoration: none; }
+.btn-game { width: 100%; }
+.menu-actions .btn-game { font-size: .95rem; }
+button.primary, button.btn-game:not(.secondary):not(.special), #craft {
+  --button-top: #5a231e;
+  --button-bottom: #38120e;
+  --button-border: #8f3d35;
+  --button-base: #1a0806;
+  --button-hover-top: #7a312a;
+  --button-hover-bottom: #4a1914;
+  --button-hover-border: #d45649;
+  --button-glow: rgb(212 86 73 / 40%);
+  color: #f0e6d2;
+  background: linear-gradient(180deg, var(--button-top), var(--button-bottom));
+  border-color: var(--button-border);
+}
+a.btn-game.special, button.btn-game.special {
+  --button-top: #1c3344;
+  --button-bottom: #0d1a24;
+  --button-border: #2e5978;
+  --button-base: #060f16;
+  --button-hover-top: #27475f;
+  --button-hover-bottom: #132635;
+  --button-hover-border: #4588b8;
+  --button-glow: rgb(114 193 241 / 30%);
+  color: #72c1f1;
+}
+button:hover:not(:disabled), button.primary:hover:not(:disabled),
+a.btn-game:hover, #craft:hover:not(:disabled) {
+  color: #fff;
+  background: linear-gradient(180deg, var(--button-hover-top), var(--button-hover-bottom));
+  border-color: var(--button-hover-border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 40%), 0 4px 12px var(--button-glow);
+  transform: translateY(-1px);
+}
+button:active:not(:disabled), a.btn-game:active, #craft:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 80%), 0 1px 0 var(--button-base);
+}
+button:disabled, fieldset:disabled button {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+}
+button.skill-active, button.skill-active:disabled {
+  --button-hover-top: #40573b;
+  --button-hover-bottom: #253821;
+  background: linear-gradient(#34482f, #1b2e1a);
+  border-color: var(--green);
+  color: #dff4df;
+  box-shadow: inset 0 1px 0 #b4cf9c40, 0 4px 0 #0b180a;
+}
+
+input, select, .start input, .equipment-list select {
+  color: var(--ink);
+  background: #0e0e15;
+  border: 1px solid #706047;
+  border-radius: 2px;
+  box-shadow: inset 0 2px 5px #0008;
+  font-family: var(--font-game);
+  font-size: .9rem;
+  min-height: 44px;
+}
+input::placeholder { color: #958b7b; opacity: 1; }
+label, legend { color: var(--gold); }
+button:focus-visible, a:focus-visible, input:focus-visible, .start input:focus-visible, select:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 4px;
+}
+.overlay { background: #07070bdf; }
+.pause-panel, .collection-panel { overscroll-behavior: contain; }
+.room-badge, .avatar, .stats div, .weapon article,
+.status-effect, .collection-list article, .equipment-list article, .workshop-page .item {
+  background: #101017;
+  border-color: var(--line);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 #ffffff08;
+}
+.intent { color: #d6b487; background: #221a14; border-color: #8b6b3e; }
+.bar, .pip { background: #08080d; box-shadow: inset 0 1px 3px #000; }
+.bar { height: 10px; border: 1px solid #4a3b2c; }
+.pip.on { background: linear-gradient(#f3e5ab, #8b6b3e); }
+.stats, .divider, .log p { border-color: var(--line); }
+.divider { background: var(--line); }
+.log, #log { color: var(--muted); font-size: .85rem; line-height: 1.75; }
+#log, .button-tooltip { background: #0e0e15; border-color: #8b6b3e; }
+.stats span, .identity small, .collection-list small, .equipment-list small,
+.status-empty, .status-effect small, .status-effect strong, .status-effect span {
+  font-size: .75rem;
+  line-height: 1.55;
+}
+.collection-list button, .equipment-list button { font-size: .75rem; }
+.vital > div:first-child, .enemy-health > div:first-child, .resource span { font-size: .75rem; }
+.weight-penalty { white-space: normal; font-size: .7rem; }
+.status-buff { border-left-color: #72c1f1; }
+.status-debuff { border-left-color: #d45649; }
+.status-buff strong { color: #72c1f1; }
+.status-debuff strong { color: #f19488; }
+.error, #error { color: #ffafa2; }
+#error { background: #361917; border-color: #8f3d35; border-radius: 2px; }
+
+/* Táctico: el mismo lenguaje visual con espacio para el grupo completo. */
+.tactical-page .steps { gap: 20px; border-color: var(--line); }
+.tactical-page .steps .active { border-color: var(--gold); }
+.tactical-page .hero, .tactical-page .health-card { min-width: 0; }
+.tactical-page .hero .unique { color: #c2b293; }
+.tactical-page .health-card .effects { color: #f19488; }
+.tactical-page .stats { border-color: var(--line); gap: 10px; }
+.tactical-page .health-card h3 { font-size: 1rem; }
+.tactical-page progress { border-radius: 2px; accent-color: #94b487; }
+.tactical-page .boss progress { accent-color: #b84438; }
+.tactical-page .shield { accent-color: #c4a06a !important; }
+.tactical-page .encounter { gap: 22px; }
+
+/* Taller: controles de diseño y dos contenedores claramente separados. */
+.workshop-page header { padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.workshop-page section { margin: 28px 0; padding: 26px; }
+.workshop-page .panels > article { min-width: 0; }
+.workshop-page .item p { color: var(--muted); }
+.workshop-page #result { border-color: #8b6b3e; }
+.workshop-page #message { color: var(--gold-bright); }
+.workshop-page .filters { padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.workshop-page #craftFields { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.workshop-page #craftFields legend { margin-bottom: 8px; }
+.workshop-page #craftFields label { flex: 1 1 180px; margin: 0; }
+.workshop-page #craft { flex: 0 0 auto; }
+.workshop-page .item button { font-size: .78rem; padding: 10px 12px; }
+
+@media (max-width: 600px) {
+  body { font-size: 14px; }
+  body > .shell { width: calc(100% - 28px); }
+  .start.menu { padding: 24px 18px; }
+  .menu .menu-title { font-size: 2rem; }
+  .menu-actions .btn-game { font-size: .85rem; }
+  .brand { align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+  .hud, .sheet, .encounter { padding: 20px; }
+  .pause-panel, .collection-panel { padding: 22px 16px; }
+  .collection-list article, .equipment-list article { min-width: 0; overflow-wrap: anywhere; }
+  .collection-list article > div { flex-wrap: wrap; }
+  .tactical-page .health-grid { grid-template-columns: 1fr; }
+  .tactical-page .steps { flex-wrap: wrap; gap: 10px; }
+  .tactical-page .hero, .tactical-page #result, .tactical-page .encounter { padding: 20px; }
+  .workshop-page section { padding: 18px; }
+  .workshop-page #craft { width: 100%; }
+  .workshop-page .filters label { display: flex; margin-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  button:hover:not(:disabled), button:active:not(:disabled), a.btn-game:hover, a.btn-game:active,
+  button.primary:hover:not(:disabled), #craft:hover:not(:disabled), #craft:active:not(:disabled) { transform: none; }
+}

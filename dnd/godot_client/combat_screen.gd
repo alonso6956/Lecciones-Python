@@ -80,7 +80,7 @@ func render_state(state: Dictionary) -> void:
 
 func _render_player(player: Dictionary) -> void:
 	player_view.render_combatant(player)
-	player_name.text = str(player.get("nombre", "Personaje"))
+	player_name.text = "%s · %s · %s" % [player.get("nombre", "Personaje"), player.get("clase_nombre", "Sin clase"), "Chispa latente" if player.get("chispa") != null else "Sin chispa"]
 	player_health.max_value = float(player.get("salud_maxima", 1))
 	player_health.value = float(player.get("hp", 0))
 	player_health_text.text = "%s / %s HP" % [
@@ -146,7 +146,7 @@ func _render_actions(player: Dictionary, state: Dictionary) -> void:
 			continue
 		if not skill.get("cumple_requisito", false):
 			continue
-		if not skill.get("cumple_tipo_equipo", false):
+		if not skill.get("cumple_requisito", false):
 			continue
 		_create_skill_button(skill, current_energy)
 

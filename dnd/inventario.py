@@ -3,7 +3,7 @@
 from combat_formulas import calcular_mitigacion_armadura
 from item import Arma, Armadura, Consumible, Material, Secundario
 from item_factory import ALIASES_LEGACY, item_factory
-from pasiva_factory import pasiva_factory
+from item_container import ItemContainer
 
 
 SLOTS_EQUIPO = (
@@ -16,9 +16,9 @@ SLOTS_EQUIPO = (
 )
 
 
-class Inventario:
-    def __init__(self, items=None, arma_equipada=None, equipamiento=None):
-        self._cantidades = {}
+class Inventario(ItemContainer):
+    def __init__(self, items=None, arma_equipada=None, equipamiento=None, capacidad=None):
+        self._iniciar_contenedor(capacidad)
         for item_id, cantidad in (items or {}).items():
             item_id = ALIASES_LEGACY.get(item_id, item_id)
             self.recolectar(item_id, cantidad)
@@ -73,11 +73,7 @@ class Inventario:
         return self._cantidades.get(item.id, 0)
 
     def recolectar(self, identificador, cantidad=1):
-        item = item_factory.crear(identificador)
-        if not isinstance(cantidad, int) or isinstance(cantidad, bool) or cantidad < 1:
-            raise ValueError("La cantidad debe ser un entero positivo.")
-        self._cantidades[item.id] = self._cantidades.get(item.id, 0) + cantidad
-        return item
+        return super().recolectar(identificador, cantidad)
 
     def equipar(self, identificador, personaje):
         item = item_factory.crear(identificador)
@@ -173,7 +169,7 @@ class Inventario:
 
     def serializar(self):
         return {
-            "items": dict(self._cantidades),
+            **self._serializar_contenedor(),
             "equipamiento": dict(self._equipamiento),
             "arma_equipada": self._equipamiento["mano_principal"],
         }
@@ -182,11 +178,16 @@ class Inventario:
     def deserializar(cls, datos):
         if not isinstance(datos, dict) or not isinstance(datos.get("items"), dict):
             raise ValueError("Los datos del inventario no son válidos.")
-        return cls(
+        for custom in datos.get("custom", {}).values():
+            item_factory.registrar_instancia(custom)
+        resultado = cls(
             datos["items"],
             datos.get("arma_equipada"),
             datos.get("equipamiento"),
+            datos.get("capacidad"),
         )
+        resultado._restaurar_identidades(datos)
+        return resultado
 
     def estado_equipamiento(self):
         resultado = {}
@@ -215,11 +216,9 @@ class Inventario:
                         durabilidad=item.durabilidad,
                     )
                 elif isinstance(item, Arma):
-                    pasiva = pasiva_factory.para_arma(item)
                     datos.update(
                         tier=item.tier,
                         dos_manos=item.dos_manos,
-                        pasiva_nombre=pasiva.nombre if pasiva else None,
                     )
                 resultado[slot] = datos
             else:
@@ -253,7 +252,6 @@ class Inventario:
                 datos["peso"] = item.peso
                 datos["durabilidad"] = item.durabilidad
             if isinstance(item, Arma):
-                pasiva = pasiva_factory.para_arma(item)
                 datos.update(
                     tipo_arma=item.tipo_arma,
                     tier=item.tier,
@@ -261,19 +259,9 @@ class Inventario:
                     dos_manos=item.dos_manos,
                     estadistica_escalado=item.estadistica_escalado,
                     crecimiento_por_punto=item.crecimiento_por_punto,
-                    pasiva=(
-                        {
-                            "nombre": pasiva.nombre,
-                            "descripcion": pasiva.descripcion,
-                            "efecto": pasiva.efecto,
-                            "valor": pasiva.valor,
-                            "probabilidad": pasiva.probabilidad,
-                            "dano_sangrado": pasiva.dano_sangrado,
-                            "numero_ataques": pasiva.numero_ataques,
-                        }
-                        if pasiva
-                        else None
-                    ),
+                    peso=item.peso, durabilidad=item.durabilidad,
+                    velocidad=item.velocidad, critico=item.critico, penetracion=item.penetracion,
+                    alcance=item.alcance, material=item.material, afijo=dict(item.afijo),
                 )
             elif isinstance(item, Secundario):
                 datos.update(

@@ -1,6 +1,10 @@
 import random
+from combat_stats import defensa_total, tirar_dano
+from weapon_effects import armadura_tras_penetracion, modificar_golpe, activar_afijo, ticks_afijos
 
 from character import Personaje
+from character_roster import CharacterRoster, deserializar_personaje, serializar_personaje, migrar_personaje
+from progression import comprobar_hitos
 from combat_formulas import (
     aplicar_mitigacion_dano,
     calcular_bonus_hack_slash,
@@ -35,9 +39,14 @@ class ErrorJuego(ValueError):
 
 class MotorJuego:
     HABITACIONES_TOTALES = 50
-    ENERGIA_MAXIMA = 3
+    ENERGIA_MAXIMA = Personaje.ENERGIA_BASE
 
-    def __init__(self, rng=None):
+    @property
+    def energia_maxima(self):
+        return self.jugador.energia_maxima if self.jugador else self.ENERGIA_MAXIMA
+
+    def __init__(self, rng=None, roster=None):
+        self.roster = roster if roster is not None else CharacterRoster()
         self.rng = rng or random.Random()
         self.sistema_niveles = SistemaNiveles(
             exp_por_nivel=30,
@@ -52,7 +61,7 @@ class MotorJuego:
         self.numero_habitacion = 0
         self.habitacion_anterior = None
         self.enemigo_actual = None
-        self.energia = self.ENERGIA_MAXIMA
+        self.energia = self.energia_maxima
         self.enemigo_dano = 0
         self.enemigo_habilidad = None
         self.aturdimiento_jugador = 0
@@ -70,23 +79,49 @@ class MotorJuego:
     def nueva_partida(self):
         self.reiniciar()
         self.fase = "inicio"
-        self.registro = ["Elige un nombre y un arma para comenzar."]
+        self.registro = ["Escribe un nombre para comenzar con una espada básica."]
 
-    def iniciar(self, nombre, arma):
+    def iniciar(self, nombre, arma=None):
         self._exigir_fase("inicio")
-        nombre = str(nombre).strip()
+        if not isinstance(nombre, str):
+            raise ErrorJuego("Debes escribir un nombre.")
+        nombre = nombre.strip()[:30]
         if not nombre:
             raise ErrorJuego("Debes escribir un nombre.")
-        if arma not in objetos["armas"] or not objetos["armas"][arma].get(
-            "inicial",
-            False,
-        ):
-            raise ErrorJuego("El arma inicial no es válida.")
-        stats = {"fuerza": 1, "destreza": 1, "constitucion": 1}
-        self.jugador = Personaje(nombre, arma, stats)
-        self.fase = "transicion"
-        self.registro = [f"{nombre} entra al calabozo con {arma}."]
-        self.siguiente_habitacion()
+        jugador = Personaje(nombre, "espada_basica", {"fuerza": 1, "destreza": 1, "constitucion": 1})
+        # El checkpoint inicial permite volver a intentar la expedición.
+        self.roster.save_to_disk(jugador)
+        self.cargar_personaje(jugador.id)
+
+    def cargar_personaje(self, personaje_id):
+        self.importar_guardado({"jugador": self.roster.obtener(personaje_id)})
+
+    def abandonar(self):
+        self.reiniciar()
+        self.numero_habitacion = 1
+        self._registrar("Vuelves al menú. Tu personaje conserva el último guardado y comenzará en la habitación 1.")
+
+    def elegir_clase(self, clase):
+        if not self.jugador or self.fase not in {"nivel", "transicion"}:
+            raise ErrorJuego("No puedes elegir clase en este momento.")
+        self.jugador.elegir_clase(clase)
+        self._registrar(f"Eliges la clase {clase}.")
+        self._emitir_evento("clase_elegida", categoria="progresion", clase=clase)
+        if self.fase == "nivel":
+            self._fase_tras_mejoras()
+
+    def _fase_tras_mejoras(self):
+        if self.jugador.puntos_estadistica or (self.jugador.nivel >= 10 and self.jugador.clase is None):
+            self.fase = "nivel"
+        else:
+            self.fase = "combate" if self.enemigo_actual and self.enemigo_actual.hp > 0 else "transicion"
+
+    def _procesar_hitos(self, hitos):
+        for hito in hitos:
+            mensaje = ("Alcanzas el nivel 10: puedes elegir tu clase." if hito == "elegir_clase"
+                       else "Nivel 30: una chispa latente te infesta.")
+            self._registrar(mensaje)
+            self._emitir_evento(hito, categoria="progresion", actor="jugador", mensaje=mensaje)
 
     def _registrar(self, mensaje):
         self.registro.append(mensaje)
@@ -128,21 +163,15 @@ class MotorJuego:
             raise ErrorJuego("Esa acción no está disponible ahora.")
 
     def _elegir_habitacion(self):
-        if self.numero_habitacion == self.HABITACIONES_TOTALES:
-            return "combate"
-        disponibles = ["combate"]
-        precio_minimo = min(
-            datos["precio"]
-            for categoria in objetos.values()
-            for datos in categoria.values()
-        )
-        if self.jugador.oro >= precio_minimo and self.habitacion_anterior != "tienda":
-            disponibles.append("tienda")
-        return self.rng.choice(disponibles)
+        return "combate"
 
     def siguiente_habitacion(self):
-        if self.fase not in {"transicion", "tienda"}:
+        if self.fase != "transicion":
             raise ErrorJuego("Todavía no puedes avanzar.")
+        if self.jugador.nivel >= 10 and self.jugador.clase is None:
+            raise ErrorJuego("Elige tu clase antes de continuar.")
+        self.roster.save_to_disk(self.jugador)
+        self._registrar("Progreso guardado al completar la habitación.")
         if self.numero_habitacion >= self.HABITACIONES_TOTALES:
             self._terminar("victoria")
             return
@@ -150,12 +179,7 @@ class MotorJuego:
         tipo = self._elegir_habitacion()
         self.habitacion_anterior = tipo
         self._registrar(f"Habitación {self.numero_habitacion}: {tipo}.")
-        if tipo == "combate":
-            self._iniciar_combate()
-        else:
-            self.enemigo_actual = None
-            self.fase = "tienda"
-            self._registrar("Un mercader te ofrece sus productos.")
+        self._iniciar_combate()
 
     def _iniciar_combate(self):
         enemigo_anterior = self.enemigo_actual
@@ -170,7 +194,7 @@ class MotorJuego:
             self.enemigo_actual = enemigo_anterior
             self.intencion = intencion_anterior
             raise
-        self.energia = self.ENERGIA_MAXIMA
+        self.energia = self.energia_maxima
         self.turno_global = 0
         self.ultimo_actor = None
         self.acumuladores_velocidad = {"jugador": 0, "enemigo": 0}
@@ -213,12 +237,10 @@ class MotorJuego:
             if not habilidad.causa_dano:
                 self.enemigo_dano = 0
                 return
-            dano_arma = obtener_dano_arma(enemigo.arma, self.rng)
-            self.enemigo_dano = enemigo.calcular_dano_base() + dano_arma
+            self.enemigo_dano = tirar_dano(enemigo, self.rng)
             return
 
-        dano_arma = obtener_dano_arma(enemigo.arma, self.rng)
-        self.enemigo_dano = enemigo.calcular_dano_base() + dano_arma
+        self.enemigo_dano = tirar_dano(enemigo, self.rng)
         minimo, maximo = objetos["armas"][enemigo.arma]["ataque"]
         minimo += enemigo.calcular_dano_base()
         maximo += enemigo.calcular_dano_base()
@@ -231,17 +253,10 @@ class MotorJuego:
             self.intencion = "normal"
 
     def _dano_total_jugador(self):
-        return (
-            self.jugador.calcular_dano_base()
-            + obtener_dano_arma(self.jugador.arma, self.rng)
-        )
+        return tirar_dano(self.jugador, self.rng)
 
     def _defensa_total_jugador(self):
-        return (
-            self.jugador.calcular_defensa_base()
-            + self.jugador.inventario.armadura_equipo()
-            + round(self.jugador.bonus_pasivo_habilidad("defensa"))
-        )
+        return defensa_total(self.jugador)
 
     def _evasion_total_jugador(self):
         """Incluye la evasión temporal de Paso veloz cuando está activa."""
@@ -253,8 +268,8 @@ class MotorJuego:
             )
         return self.jugador.evasion
 
-    def _aplicar_sangrado_daga(self, numero_ataque=None):
-        pasiva = self.jugador.pasiva_arma
+    def _aplicar_sangrado(self, numero_ataque=None):
+        pasiva = self.jugador.pasiva_clase
         if not pasiva or pasiva.efecto != "doble_ataque_sangrado":
             return
         renovado = self.enemigo_actual.sangrado_turnos > 0
@@ -276,6 +291,10 @@ class MotorJuego:
 
     def _resolver_sangrado(self):
         enemigo = self.enemigo_actual
+        for efecto, dano in ticks_afijos(enemigo):
+            self._registrar(f"{efecto.capitalize()} causa {dano} de daño al enemigo.")
+            self._emitir_evento("dano", actor="jugador", objetivo="enemigo", dano=dano,
+                               fuente=efecto, hp_restante=max(0, enemigo.hp))
         if enemigo.sangrado_turnos <= 0 or enemigo.hp <= 0:
             return
         dano = enemigo.sangrado_dano
@@ -297,7 +316,7 @@ class MotorJuego:
         esquivados = 0
         dano_total = 0
         golpes_realizados = 0
-        pasiva = self.jugador.pasiva_arma
+        pasiva = self.jugador.pasiva_clase
         escudo_enemigo = (
             item_factory.crear(self.enemigo_actual.secundario)
             if self.enemigo_actual.secundario
@@ -376,6 +395,8 @@ class MotorJuego:
             )
             if critico:
                 dano_golpe = pasiva.calcular_critico(dano_golpe)
+            dano_golpe, critico_arma = modificar_golpe(self.jugador, self.enemigo_actual, dano_golpe, self.rng)
+            critico = critico or critico_arma
 
             recibido = max(
                 1,
@@ -383,7 +404,7 @@ class MotorJuego:
                     aplicar_mitigacion_dano(
                         dano_golpe,
                         bloqueo_escudo=porcentaje_bloqueado,
-                        armadura=self.enemigo_actual.defensa_total,
+                        armadura=armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total),
                     )
                 ),
             )
@@ -404,6 +425,7 @@ class MotorJuego:
                 )
 
             self.enemigo_actual.hp -= recibido
+            activar_afijo(self.jugador, self.enemigo_actual, self.rng)
             impactos += 1
             dano_total += recibido
             self._registrar(
@@ -458,16 +480,16 @@ class MotorJuego:
         defensa_ignorada = False
 
         if accion == "atacar":
-            self.energia = min(self.ENERGIA_MAXIMA, self.energia + 1)
-            pasiva = self.jugador.pasiva_arma
+            self.energia = min(self.energia_maxima, self.energia + 1)
+            pasiva = self.jugador.pasiva_clase
             es_doble_ataque = bool(
                 pasiva and pasiva.efecto == "doble_ataque_sangrado"
             )
-            # En doble ataque cada daga obtiene su propia tirada dentro del bucle.
+            # En doble ataque cada golpe obtiene su propia tirada dentro del bucle.
             dano = 0 if es_doble_ataque else self._dano_total_jugador()
             mensaje = "Atacas"
         elif accion == "defender":
-            self.energia = min(self.ENERGIA_MAXIMA, self.energia + 1)
+            self.energia = min(self.energia_maxima, self.energia + 1)
             self.is_defending = True
             self._registrar(
                 f"Defiendes con {self._defensa_total_jugador() * 2} de armadura "
@@ -480,15 +502,7 @@ class MotorJuego:
             if nivel_habilidad < 1:
                 raise ErrorJuego("La habilidad todavía está bloqueada.")
             if not self.jugador.puede_usar_habilidad(habilidad_id):
-                requisito_adicional = (
-                    " y la mano secundaria libre"
-                    if habilidad.requiere_mano_secundaria_libre
-                    else ""
-                )
-                raise ErrorJuego(
-                    f"{habilidad.nombre} requiere un arma de tipo "
-                    f"{habilidad.tipo_arma_requerida}{requisito_adicional}."
-                )
+                raise ErrorJuego("La habilidad no pertenece a tu clase o no está aprendida.")
             if self.cooldowns_habilidades.get(habilidad_id, 0) > 0:
                 self._registrar(
                     "La habilidad entró en cooldown: realizas un ataque normal."
@@ -518,7 +532,7 @@ class MotorJuego:
                 self._resolver_ataques_multiples(habilidad, nivel_habilidad)
                 return defensa_extra, ataques_evitar
             if habilidad.causa_dano:
-                pasiva = self.jugador.pasiva_arma
+                pasiva = self.jugador.pasiva_clase
                 defensa_ignorada = bool(
                     pasiva
                     and pasiva.efecto == "ignorar_defensa"
@@ -559,7 +573,7 @@ class MotorJuego:
                     nivel_habilidad=nivel_habilidad,
                     valor_atributo=valor_atributo,
                     defensa_objetivo=(
-                        0 if defensa_ignorada else self.enemigo_actual.defensa_total
+                        0 if defensa_ignorada else armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total)
                     ),
                     constitucion_objetivo=self.enemigo_actual.constitucion,
                     bloqueo_exitoso=bloqueo_exitoso,
@@ -603,7 +617,7 @@ class MotorJuego:
                 return defensa_extra, ataques_evitar
             mensaje = f"Usas {habilidad.nombre} (nivel {nivel_habilidad}) y"
 
-        pasiva = self.jugador.pasiva_arma
+        pasiva = self.jugador.pasiva_clase
         if habilidad is None:
             defensa_ignorada = bool(
                 pasiva
@@ -622,7 +636,7 @@ class MotorJuego:
                         armadura=(
                             0
                             if defensa_ignorada
-                            else self.enemigo_actual.defensa_total
+                            else armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total)
                         ),
                     )
                 ),
@@ -728,6 +742,8 @@ class MotorJuego:
             )
             if critico:
                 dano_ataque = pasiva.calcular_critico(dano_ataque)
+            dano_ataque, critico_arma = modificar_golpe(self.jugador, self.enemigo_actual, dano_ataque, self.rng)
+            critico = critico or critico_arma
 
             if ataque_normal_independiente:
                 dano_ataque = max(
@@ -739,7 +755,7 @@ class MotorJuego:
                             armadura=(
                                 0
                                 if defensa_ignorada
-                                else self.enemigo_actual.defensa_total
+                                else armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total)
                             ),
                         )
                     ),
@@ -767,6 +783,7 @@ class MotorJuego:
                     dano=dano_ataque,
                 )
             self.enemigo_actual.hp -= dano_ataque
+            activar_afijo(self.jugador, self.enemigo_actual, self.rng)
             impactos += 1
             dano_total += dano_ataque
             self._registrar(
@@ -787,7 +804,7 @@ class MotorJuego:
                 hp_restante=max(0, self.enemigo_actual.hp),
             )
             if numero_ataques > 1 and self.enemigo_actual.hp > 0:
-                self._aplicar_sangrado_daga(numero_ataque)
+                self._aplicar_sangrado(numero_ataque)
         if impactos and numero_ataques > 1:
             self._registrar(
                 f"Doble ataque: {impactos}/{numero_ataques} impactos, "
@@ -969,13 +986,6 @@ class MotorJuego:
 
     def actuar(self, accion, habilidad_id=None):
         self._exigir_fase("combate")
-        if accion == "tecnica":
-            arma = self.jugador.inventario.arma_equipada
-            habilidad = habilidad_factory.para_tipo_arma(arma.tipo_arma)
-            if not habilidad:
-                raise ErrorJuego("El arma principal no tiene una técnica asociada.")
-            habilidad_id = habilidad.id
-            accion = "habilidad"
         if accion not in {"atacar", "defender", "habilidad", "usar_item"}:
             raise ErrorJuego("Acción de combate no válida.")
 
@@ -996,10 +1006,7 @@ class MotorJuego:
             if self.jugador.nivel_habilidad(habilidad_id) < 1:
                 raise ErrorJuego("La habilidad todavía está bloqueada.")
             if not self.jugador.puede_usar_habilidad(habilidad_id):
-                raise ErrorJuego(
-                    f"{habilidad.nombre} requiere un arma de tipo "
-                    f"{habilidad.tipo_arma_requerida}."
-                )
+                raise ErrorJuego("La habilidad no pertenece a tu clase.")
             if self.cooldowns_habilidades.get(habilidad_id, 0) > 0:
                 raise ErrorJuego("La habilidad todavía está en cooldown.")
             if self.efectos_habilidades.get(habilidad_id, 0) > 0:
@@ -1048,15 +1055,7 @@ class MotorJuego:
                     f"{self.jugador.mitigar_dano_turnos} turno(s)."
                 )
             if not self.jugador.puede_usar_habilidad(habilidad_id):
-                requisito_adicional = (
-                    " y la mano secundaria libre"
-                    if habilidad.requiere_mano_secundaria_libre
-                    else ""
-                )
-                raise ErrorJuego(
-                    f"{habilidad.nombre} requiere un arma de tipo "
-                    f"{habilidad.tipo_arma_requerida}{requisito_adicional}."
-                )
+                raise ErrorJuego("La habilidad no pertenece a tu clase.")
             if nuevos_cooldowns.get(habilidad_id, 0) > 0:
                 raise ErrorJuego("La habilidad todavía está en cooldown.")
             if self.energia < habilidad.costo_energia:
@@ -1075,6 +1074,11 @@ class MotorJuego:
             ultimo_actor=self.ultimo_actor,
             acumuladores=self.acumuladores_velocidad,
         )
+        if accion == "usar_item":
+            # La poción adelanta una acción propia, incluso frente a ataques
+            # rápidos. Las acciones extra conservan su orden y su cantidad.
+            cola.remove("jugador")
+            cola.insert(0, "jugador")
         defensa_extra = 0
         ataques_evitar = 0
         item_usado = False
@@ -1179,48 +1183,38 @@ class MotorJuego:
                     return
 
     def _preparar_respawn(self):
-        """Detiene el combate para que la derrota sea visible antes de renacer."""
+        """Conserva la progresión permanente antes de descartar la expedición."""
+        nombre = self.jugador.nombre
         self.jugador.hp = 0
         self.fase = "muerte"
-        self.resultado = "derrota"
-        self._registrar("Has caído en el calabozo.")
-        self._emitir_evento(
-            "derrota",
-            categoria="progresion",
-            actor="jugador",
-            objetivo="jugador",
-        )
-
-    def _respawn(self):
-        """Reinicia la expedición sin reemplazar ni degradar al personaje."""
-        self._exigir_fase("muerte")
-        self.jugador.hp = self.jugador.salud_maxima
-        self.resultado = None
+        # Si falla el disco, mantenemos al personaje para reintentar el guardado.
+        self.roster.save_to_disk(self.jugador)
+        self.reiniciar()
         self.numero_habitacion = 1
-        self.habitacion_anterior = "combate"
-        self.enemigo_actual = None
-        self.energia = self.ENERGIA_MAXIMA
-        self.enemigo_dano = 0
-        self.enemigo_habilidad = None
-        self.aturdimiento_jugador = 0
-        self.intencion = None
-        self.turno_global = 0
-        self.ultimo_actor = None
-        self.acumuladores_velocidad = {"jugador": 0, "enemigo": 0}
-        self.is_defending = False
-        self._registrar(
-            "Despiertas recuperado al inicio del calabozo; conservas tu progreso."
-        )
-        self._iniciar_combate()
+        self._registrar(f"{nombre} ha caído. Su experiencia, oro y progreso se han guardado. La próxima expedición comenzará en la habitación 1.")
+        self._emitir_evento("derrota", categoria="progresion", actor="jugador")
 
     def respawn(self):
-        self._respawn()
+        self._exigir_fase("muerte")
+        self._preparar_respawn()
+
+    def _subir_nivel_jugador(self):
+        energia_anterior = self.energia_maxima
+        self._procesar_hitos(self.jugador.subir_nivel())
+        aumento = self.energia_maxima - energia_anterior
+        self.energia = min(self.energia_maxima, self.energia + aumento)
+        if aumento:
+            self._registrar(f"Tu energía máxima aumenta a {self.energia_maxima} (+{aumento}).")
 
     def _resolver_victoria(self):
         enemigo = self.enemigo_actual
         oro = self.rng.randint(*enemigo.oro)
         self.jugador.oro += oro
         self.jugador.ganar_exp(enemigo.exp)
+        from crafting import botin_crafteo
+        for item_id, cantidad in botin_crafteo(self.rng):
+            item = self.jugador.inventario.recolectar(item_id, cantidad)
+            self._registrar(f"Recoges {item.nombre} x{cantidad} para crafteo.")
         enemigo.hp = 0
         self._registrar(
             f"Derrotas al {enemigo.nombre}: +{oro} oro, +{enemigo.exp} EXP."
@@ -1235,7 +1229,7 @@ class MotorJuego:
             experiencia=enemigo.exp,
         )
         if self.sistema_niveles.puede_subir(self.jugador):
-            self.jugador.subir_nivel()
+            self._subir_nivel_jugador()
             self.fase = "nivel"
             self._registrar(
                 f"Alcanzas el nivel {self.jugador.nivel}: recibes 1 punto "
@@ -1252,16 +1246,16 @@ class MotorJuego:
             raise ErrorJuego(str(error)) from error
         self._registrar(f"Asignas +1 a {estadistica}.")
         if self.sistema_niveles.puede_subir(self.jugador):
-            self.jugador.subir_nivel()
+            self._subir_nivel_jugador()
             self._registrar(
                 f"Alcanzas el nivel {self.jugador.nivel}: recibes otro punto "
                 "de estadística y de habilidad."
             )
         else:
-            self.fase = "transicion"
+            self._fase_tras_mejoras()
 
     def mejorar_habilidad(self, habilidad_id):
-        if self.fase in {"menu", "inicio", "combate", "fin"}:
+        if self.fase in {"menu", "inicio", "combate", "muerte", "fin"}:
             raise ErrorJuego("No puedes mejorar habilidades en este momento.")
         try:
             habilidad = self.jugador.mejorar_habilidad(habilidad_id)
@@ -1274,7 +1268,7 @@ class MotorJuego:
         )
 
     def equipar_item(self, item_id):
-        if self.fase in {"menu", "inicio", "combate", "fin"}:
+        if self.fase in {"menu", "inicio", "combate", "muerte", "fin"}:
             raise ErrorJuego("No puedes cambiar equipo en este momento.")
         try:
             salud_anterior = self.jugador.salud_maxima
@@ -1285,7 +1279,7 @@ class MotorJuego:
         self._registrar(f"Equipas {item.nombre}.")
 
     def desequipar_item(self, slot):
-        if self.fase in {"menu", "inicio", "combate", "fin"}:
+        if self.fase in {"menu", "inicio", "combate", "muerte", "fin"}:
             raise ErrorJuego("No puedes cambiar equipo en este momento.")
         try:
             salud_anterior = self.jugador.salud_maxima
@@ -1296,7 +1290,7 @@ class MotorJuego:
         self._registrar(f"Desequipas {item.nombre}.")
 
     def usar_item(self, item_id):
-        if self.fase in {"menu", "inicio", "fin"}:
+        if self.fase in {"menu", "inicio", "muerte", "fin"}:
             raise ErrorJuego("No puedes usar ese ítem en este momento.")
         if self.fase == "combate":
             return self.actuar("usar_item", item_id)
@@ -1306,28 +1300,10 @@ class MotorJuego:
             raise ErrorJuego(str(error)) from error
         self._registrar(f"Usas {item.nombre} y recuperas {recuperado} de vida.")
 
-    def comprar(self, categoria, nombre):
-        self._exigir_fase("tienda")
-        if categoria not in objetos or nombre not in objetos[categoria]:
-            raise ErrorJuego("Ese producto no existe.")
-        datos = objetos[categoria][nombre]
-        if self.jugador.oro < datos["precio"]:
-            raise ErrorJuego("No tienes oro suficiente.")
-        item = item_factory.crear(datos["id"])
-        self.jugador.oro -= datos["precio"]
-        self.jugador.inventario.recolectar(item.id)
-        if (
-            isinstance(item, (Arma, Secundario, Armadura))
-            and item.cumple_requisitos(self.jugador)
-        ):
-            salud_anterior = self.jugador.salud_maxima
-            self.jugador.inventario.equipar(item.id, self.jugador)
-            self.jugador.recalcular_por_equipo(salud_anterior)
-            self._registrar(f"Compras y equipas {nombre}.")
-        elif isinstance(item, (Arma, Secundario, Armadura)):
-            self._registrar(f"Compras {nombre}; aún no puedes equiparlo.")
-        elif isinstance(item, Consumible):
-            self._registrar(f"Compras {nombre} y la guardas en el inventario.")
+    def comprar(self, categoria, nombre, personaje_id=None, cantidad=1):
+        self._exigir_fase("menu")
+        from shop import Shop
+        return Shop(self.roster).comprar(personaje_id, categoria, nombre, cantidad)
 
     def _terminar(self, resultado):
         self.fase = "fin"
@@ -1336,328 +1312,28 @@ class MotorJuego:
         self._registrar(mensaje)
 
     def exportar_guardado(self):
-        """Genera una instantánea JSON del loop, incluso durante un combate."""
-        jugador = None
-        if self.jugador:
-            jugador = {
-                "nombre": self.jugador.nombre,
-                "arma": self.jugador.arma,
-                "inventario": self.jugador.inventario.serializar(),
-                "habilidades": dict(self.jugador.habilidades),
-                "puntos_estadistica": self.jugador.puntos_estadistica,
-                "puntos_habilidad": self.jugador.puntos_habilidad,
-                "fuerza": self.jugador.fuerza,
-                "destreza": self.jugador.destreza,
-                "constitucion": self.jugador.constitucion,
-                "salud_maxima": self.jugador.salud_maxima,
-                "hp": max(0, self.jugador.hp),
-                "nivel": self.jugador.nivel,
-                "oro": self.jugador.oro,
-                "exp": self.jugador.exp,
-                "mitigar_dano_activo": self.jugador.mitigar_dano_activo,
-                "mitigar_dano_turnos": self.jugador.mitigar_dano_turnos,
-            }
-        enemigo = None
-        if self.enemigo_actual:
-            enemigo = vars(self.enemigo_actual).copy()
-            enemigo["hp"] = max(0, enemigo["hp"])
-        return {
-            "fase": self.fase,
-            "resultado": self.resultado,
-            "numero_habitacion": self.numero_habitacion,
-            "habitacion_anterior": self.habitacion_anterior,
-            "energia": self.energia,
-            "enemigo_dano": self.enemigo_dano,
-            "enemigo_habilidad": self.enemigo_habilidad,
-            "aturdimiento_jugador": self.aturdimiento_jugador,
-            "intencion": self.intencion,
-            "turno_global": self.turno_global,
-            "ultimo_actor": self.ultimo_actor,
-            "acumuladores_velocidad": self.acumuladores_velocidad,
-            "is_defending": self.is_defending,
-            "cooldowns_habilidades": dict(self.cooldowns_habilidades),
-            "efectos_habilidades": dict(self.efectos_habilidades),
-            "registro": self.registro,
-            "jugador": jugador,
-            "enemigo": enemigo,
-        }
+        """Solo progresión permanente. Nunca incluye vida, habitación o buffs."""
+        if not self.jugador:
+            raise ErrorJuego("No hay un personaje activo.")
+        return {"jugador": serializar_personaje(self.jugador)}
 
     def importar_guardado(self, datos):
-        """Valida y restaura una instantánea; no modifica el motor si falla."""
-        try:
-            fase = datos["fase"]
-            habitacion = int(datos["numero_habitacion"])
-            jugador_datos = datos["jugador"]
-            enemigo_datos = datos.get("enemigo")
-            if fase not in {
-                "combate",
-                "nivel",
-                "transicion",
-                "tienda",
-                "muerte",
-                "fin",
-            }:
-                raise ValueError
-            if not 1 <= habitacion <= self.HABITACIONES_TOTALES:
-                raise ValueError
-            if not isinstance(jugador_datos, dict):
-                raise ValueError
-            arma_original = jugador_datos["arma"]
-            equipo_legacy = arma_original in {
-                "Espada y escudo",
-                "Espada y escudo de hierro",
-            }
-            arma = "Espada de hierro" if equipo_legacy else arma_original
-            if arma not in objetos["armas"]:
-                raise ValueError
-
-            jugador = Personaje(
-                str(jugador_datos["nombre"])[:30],
-                arma,
-                {
-                    "fuerza": int(jugador_datos["fuerza"]),
-                    "destreza": int(jugador_datos["destreza"]),
-                    "constitucion": int(jugador_datos["constitucion"]),
-                },
-            )
-            inventario_datos = jugador_datos.get("inventario")
-            if isinstance(inventario_datos, list):
-                # Compatibilidad con la lista de nombres de versiones anteriores.
-                inventario = Inventario()
-                for nombre_item in dict.fromkeys(inventario_datos or [arma]):
-                    inventario.recolectar(nombre_item)
-                if inventario.cantidad(arma) < 1:
-                    inventario.recolectar(arma)
-                jugador.inventario = inventario
-                jugador.inventario.equipar(arma, jugador)
-                if equipo_legacy:
-                    jugador.inventario.recolectar("Escudo de hierro")
-                    jugador.inventario.equipar("Escudo de hierro", jugador)
-            elif inventario_datos is not None:
-                inventario_datos = {
-                    **inventario_datos,
-                    "items": dict(inventario_datos.get("items", {})),
-                }
-                if equipo_legacy or any(
-                    item_id in inventario_datos["items"]
-                    for item_id in (
-                        "espada_escudo_hierro",
-                        "Espada y escudo",
-                        "Espada y escudo de hierro",
-                    )
-                ):
-                    cantidad_escudos = max(
-                        1,
-                        inventario_datos["items"].get("escudo_hierro", 0),
-                    )
-                    inventario_datos["items"]["escudo_hierro"] = cantidad_escudos
-                    equipamiento = dict(inventario_datos.get("equipamiento", {}))
-                    equipamiento.setdefault("mano_secundaria", "escudo_hierro")
-                    inventario_datos["equipamiento"] = equipamiento
-                jugador.inventario = Inventario.deserializar(inventario_datos)
-                if not jugador.inventario.arma_equipada:
-                    jugador.inventario.equipar(arma, jugador)
-            jugador.salud_maxima = jugador.calcular_salud_maxima()
-
-            habilidades_guardadas = jugador_datos.get("habilidades")
-            if habilidades_guardadas is not None:
-                ids_validos = {habilidad.id for habilidad in habilidad_factory.todas()}
-                if (
-                    not isinstance(habilidades_guardadas, dict)
-                    or not set(habilidades_guardadas).issubset(ids_validos)
-                ):
-                    raise ValueError
-                for habilidad_id, nivel_habilidad in habilidades_guardadas.items():
-                    habilidad = habilidad_factory.crear(habilidad_id)
-                    nivel_habilidad = int(nivel_habilidad)
-                    if not 0 <= nivel_habilidad <= habilidad.nivel_maximo:
-                        raise ValueError
-                    jugador.habilidades[habilidad_id] = nivel_habilidad
-            jugador.puntos_estadistica = int(
-                jugador_datos.get("puntos_estadistica", 0)
-            )
-            jugador.puntos_habilidad = int(jugador_datos.get("puntos_habilidad", 0))
-            for atributo in ("hp", "nivel", "oro", "exp"):
-                setattr(jugador, atributo, int(jugador_datos[atributo]))
-            if "puntos_estadistica" not in jugador_datos and fase == "nivel":
-                # En el formato anterior el nivel se otorgaba al elegir el stat.
-                jugador.subir_nivel()
-            if min(jugador.fuerza, jugador.destreza, jugador.constitucion) < 1:
-                raise ValueError
-            if (
-                not 1 <= jugador.nivel <= Personaje.NIVEL_MAXIMO
-                or jugador.oro < 0
-                or jugador.exp < 0
-            ):
-                raise ValueError
-            if jugador.puntos_estadistica < 0 or jugador.puntos_habilidad < 0:
-                raise ValueError
-            if not 0 <= jugador.hp <= jugador.salud_maxima:
-                raise ValueError
-
-            if enemigo_datos and enemigo_datos.get("arma") in {
-                "Espada y escudo",
-                "Espada y escudo de hierro",
-            }:
-                enemigo_datos = {
-                    **enemigo_datos,
-                    "arma": "Espada de hierro",
-                    "secundario": "Escudo de hierro",
-                }
-            if enemigo_datos:
-                # La velocidad es derivada de DEX; se ignora el valor redundante
-                # presente en guardados de versiones anteriores.
-                enemigo_datos = {**enemigo_datos}
-                enemigo_datos.pop("velocidad", None)
-            enemigo = Enemigo(**enemigo_datos) if enemigo_datos else None
-            if fase == "combate" and enemigo is None:
-                raise ValueError
-            if enemigo:
-                ids_habilidades_enemigo = {
-                    habilidad.id for habilidad in habilidad_factory.todas()
-                }
-                if enemigo.arma not in objetos["armas"]:
-                    raise ValueError
-                if enemigo.secundario:
-                    secundario = item_factory.crear(enemigo.secundario)
-                    if not isinstance(secundario, Secundario):
-                        raise ValueError
-                if min(enemigo.fuerza, enemigo.destreza, enemigo.constitucion) < 1:
-                    raise ValueError
-                if not 0 <= enemigo.hp <= enemigo.salud_maxima:
-                    raise ValueError
-                if not set(enemigo.habilidades).issubset(ids_habilidades_enemigo):
-                    raise ValueError
-                for habilidad_id, nivel_habilidad in enemigo.habilidades.items():
-                    habilidad = habilidad_factory.crear(habilidad_id)
-                    if not 1 <= nivel_habilidad <= habilidad.nivel_maximo:
-                        raise ValueError
-                if any(
-                    not isinstance(turnos, int) or turnos < 0
-                    for turnos in (
-                        *enemigo.cooldowns_habilidad.values(),
-                        *enemigo.efectos_habilidad.values(),
-                    )
-                ):
-                    raise ValueError
-            energia = int(datos["energia"])
-            turno_global = int(datos["turno_global"])
-            ultimo_actor = datos.get("ultimo_actor")
-            acumuladores_velocidad = datos.get(
-                "acumuladores_velocidad",
-                {"jugador": 0, "enemigo": 0},
-            )
-            is_defending = datos.get("is_defending", False)
-            cooldowns_habilidades = datos.get(
-                "cooldowns_habilidades",
-                {habilidad.id: 0 for habilidad in habilidad_factory.todas()},
-            )
-            efectos_habilidades = datos.get(
-                "efectos_habilidades",
-                {habilidad.id: 0 for habilidad in habilidad_factory.todas()},
-            )
-            ids_habilidades = {
-                habilidad.id for habilidad in habilidad_factory.todas()
-            }
-            cooldowns_habilidades = {
-                habilidad_id: cooldowns_habilidades.get(habilidad_id, 0)
-                for habilidad_id in ids_habilidades
-            }
-            efectos_habilidades = {
-                habilidad_id: efectos_habilidades.get(habilidad_id, 0)
-                for habilidad_id in ids_habilidades
-            }
-            if not 0 <= energia <= self.ENERGIA_MAXIMA or turno_global < 0:
-                raise ValueError
-            if ultimo_actor not in {None, "jugador", "enemigo"}:
-                raise ValueError
-            if (
-                not isinstance(acumuladores_velocidad, dict)
-                or set(acumuladores_velocidad) != {"jugador", "enemigo"}
-                or any(
-                    not isinstance(valor, int) or not 0 <= valor < 6
-                    for valor in acumuladores_velocidad.values()
-                )
-            ):
-                raise ValueError
-            if not isinstance(is_defending, bool):
-                raise ValueError
-            if (
-                not isinstance(cooldowns_habilidades, dict)
-                or set(cooldowns_habilidades)
-                != ids_habilidades
-                or any(
-                    not isinstance(turnos, int) or turnos < 0
-                    for turnos in cooldowns_habilidades.values()
-                )
-            ):
-                raise ValueError
-            if (
-                not isinstance(efectos_habilidades, dict)
-                or set(efectos_habilidades) != ids_habilidades
-                or any(
-                    not isinstance(turnos, int) or turnos < 0
-                    for turnos in efectos_habilidades.values()
-                )
-            ):
-                raise ValueError
-            mitigar_dano_turnos = int(
-                jugador_datos.get(
-                    "mitigar_dano_turnos",
-                    efectos_habilidades.get("mitigar_dano", 0),
-                )
-            )
-            mitigar_dano_activo = jugador_datos.get(
-                "mitigar_dano_activo",
-                mitigar_dano_turnos > 0,
-            )
-            if (
-                not isinstance(mitigar_dano_activo, bool)
-                or mitigar_dano_activo != (mitigar_dano_turnos > 0)
-                or not 0
-                <= mitigar_dano_turnos
-                <= habilidad_factory.crear("mitigar_dano").duracion_turnos
-                or mitigar_dano_turnos
-                != efectos_habilidades.get("mitigar_dano", 0)
-            ):
-                raise ValueError
-            enemigo_habilidad = datos.get("enemigo_habilidad")
-            aturdimiento_jugador = int(datos.get("aturdimiento_jugador", 0))
-            if aturdimiento_jugador < 0:
-                raise ValueError
-            if enemigo_habilidad is not None and (
-                enemigo is None or enemigo_habilidad not in enemigo.habilidades
-            ):
-                raise ValueError
-        except (KeyError, TypeError, ValueError) as error:
-            raise ErrorJuego("La partida guardada contiene datos inválidos.") from error
-
-        self.jugador = jugador
-        self.fase = fase
-        self.resultado = datos.get("resultado")
-        self.numero_habitacion = habitacion
-        self.habitacion_anterior = datos.get("habitacion_anterior")
-        self.enemigo_actual = enemigo
-        self.energia = energia
-        self.enemigo_dano = int(datos.get("enemigo_dano", 0))
-        self.enemigo_habilidad = enemigo_habilidad
-        self.aturdimiento_jugador = aturdimiento_jugador
-        self.intencion = datos.get("intencion")
-        self.turno_global = turno_global
-        self.ultimo_actor = ultimo_actor
-        self.acumuladores_velocidad = acumuladores_velocidad
-        self.is_defending = is_defending
-        self.cooldowns_habilidades = cooldowns_habilidades
-        self.efectos_habilidades = efectos_habilidades
-        self.jugador.establecer_mitigar_dano(mitigar_dano_turnos)
-        if self.fase == "combate" and self.intencion not in {
-            "rápido",
-            "normal",
-            "poderoso",
-        } and not str(self.intencion).startswith("habilidad:"):
-            self._preparar_turno_enemigo()
-        self.registro = [str(linea) for linea in datos.get("registro", [])][-80:]
-        self._registrar("Partida cargada correctamente.")
+        entrada = datos.get("jugador")
+        if not isinstance(entrada, dict):
+            raise ErrorJuego("El guardado no contiene un personaje.")
+        if "estadisticas" not in entrada:
+            entrada = migrar_personaje(datos, "legacy/" + str(entrada.get("nombre", "")))
+        jugador = deserializar_personaje(entrada)
+        # Preparamos en otro motor para no publicar una carga parcial si falla.
+        nuevo = MotorJuego(self.rng, self.roster)
+        nuevo.jugador = jugador
+        nuevo.numero_habitacion = 1
+        nuevo.habitacion_anterior = "combate"
+        nuevo._iniciar_combate()
+        nuevo._procesar_hitos(comprobar_hitos(jugador))
+        if jugador.puntos_estadistica or (jugador.nivel >= 10 and jugador.clase is None):
+            nuevo.fase = "nivel"
+        self.__dict__.update(nuevo.__dict__)
 
     def _estados_activos_jugador(self):
         return estados_activos_jugador(self)
@@ -1666,168 +1342,4 @@ class MotorJuego:
         return estados_activos_enemigo(self)
 
     def estado(self):
-        armas_iniciales = [
-            {"nombre": nombre, **datos}
-            for nombre, datos in objetos["armas"].items()
-            if datos.get("inicial", False)
-        ]
-        datos = {
-            "fase": self.fase,
-            "resultado": self.resultado,
-            "habitacion": self.numero_habitacion,
-            "habitaciones_totales": self.HABITACIONES_TOTALES,
-            "registro": self.registro,
-            "eventos": self.eventos,
-            "armas_iniciales": armas_iniciales,
-            "jugador": None,
-            "enemigo": None,
-            "tienda": objetos if self.fase == "tienda" else None,
-        }
-        if self.jugador:
-            j = self.jugador
-            dano_base = j.calcular_dano_base()
-            ataque_arma = objetos["armas"][j.arma]["ataque"]
-            datos["jugador"] = {
-                "nombre": j.nombre,
-                "visual_id": "player_default",
-                "arma": j.arma,
-                "inventario": j.inventario.estado(j),
-                "equipamiento": j.inventario.estado_equipamiento(),
-                "hp": max(0, j.hp),
-                "salud_maxima": j.salud_maxima,
-                "energia": self.energia,
-                "energia_maxima": self.ENERGIA_MAXIMA,
-                "nivel": j.nivel,
-                "nivel_maximo": self.sistema_niveles.nivel_maximo,
-                "exp": j.exp,
-                "exp_siguiente_nivel": (
-                    self.sistema_niveles.experiencia_siguiente_nivel(j)
-                ),
-                "oro": j.oro,
-                "fuerza": j.fuerza_total,
-                "destreza": j.destreza_total,
-                "constitucion": j.constitucion_total,
-                "stats_base": {
-                    "fuerza": j.fuerza,
-                    "destreza": j.destreza,
-                    "constitucion": j.constitucion,
-                },
-                "bonus_equipo": j.inventario.bonificaciones_atributos(),
-                "puntos_estadistica": j.puntos_estadistica,
-                "puntos_habilidad": j.puntos_habilidad,
-                "dano_base": dano_base,
-                "ataque_minimo": dano_base + ataque_arma[0],
-                "ataque_maximo": dano_base + ataque_arma[1],
-                "armadura": self._defensa_total_jugador(),
-                "mitigacion_armadura": calcular_mitigacion_armadura(
-                    self._defensa_total_jugador()
-                ),
-                "armadura_equipo": j.inventario.armadura_equipo(),
-                "mitigacion_armadura_equipo": calcular_mitigacion_armadura(
-                    j.inventario.armadura_equipo()
-                ),
-                "velocidad": j.velocidad,
-                "evasion": self._evasion_total_jugador(),
-                "peso_equipado": j.peso_equipado,
-                "capacidad_peso": j.capacidad_peso,
-                "penalizacion_evasion_peso": j.penalizaciones_peso["evasion"],
-                "penalizacion_velocidad_peso": j.penalizaciones_peso["velocidad"],
-                "defendiendo": self.is_defending,
-                "mitigar_dano_activo": j.mitigar_dano_activo,
-                "mitigar_dano_turnos": j.mitigar_dano_turnos,
-                "estados_activos": self._estados_activos_jugador(),
-                "ataque_arma": ataque_arma,
-                "habilidades": [
-                    {
-                        "id": habilidad.id,
-                        "nombre": habilidad.nombre,
-                        "descripcion": habilidad.descripcion_interfaz(
-                            max(1, j.nivel_habilidad(habilidad.id)),
-                            j.estadistica_total(habilidad.atributo_escalado),
-                            j.inventario.secundario_equipado,
-                        ),
-                        "nivel": j.nivel_habilidad(habilidad.id),
-                        "nivel_maximo": habilidad.nivel_maximo,
-                        "atributo": habilidad.atributo_escalado,
-                        "arma_requerida": habilidad.tipo_arma_requerida,
-                        "desbloqueada": j.nivel_habilidad(habilidad.id) > 0,
-                        "cumple_requisito": j.cumple_requisitos_habilidad(
-                            habilidad.id
-                        ),
-                        "cumple_tipo_equipo": j.inventario.cumple_tipo_equipo(
-                            habilidad.tipo_arma_requerida
-                        ),
-                        "mano_secundaria_libre": (
-                            j.inventario.secundario_equipado is None
-                        ),
-                        "costo_energia": habilidad.costo_energia,
-                        "cooldown_turnos": habilidad.cooldown_turnos,
-                        "cooldown": self.cooldowns_habilidades.get(habilidad.id, 0),
-                        "bonus_dano": habilidad.bonus_dano_por_nivel
-                        * j.nivel_habilidad(habilidad.id),
-                        "efecto": habilidad.calcular_efecto(
-                            max(1, j.nivel_habilidad(habilidad.id)),
-                            j.estadistica_total(habilidad.atributo_escalado),
-                            j.inventario.secundario_equipado,
-                        ),
-                        "tipo_efecto": habilidad.tipo_efecto,
-                        "numero_golpes": habilidad.numero_golpes,
-                        "dano_total_por_golpe": habilidad.multiplicador_base,
-                        "requiere_mano_secundaria_libre": (
-                            habilidad.requiere_mano_secundaria_libre
-                        ),
-                        "causa_dano": habilidad.causa_dano,
-                        "duracion": habilidad.duracion_turnos,
-                        "turnos_activos": self.efectos_habilidades.get(
-                            habilidad.id,
-                            0,
-                        ),
-                        "activa": (
-                            j.mitigar_dano_activo
-                            if habilidad.id == "mitigar_dano"
-                            else self.efectos_habilidades.get(habilidad.id, 0) > 0
-                        ),
-                    }
-                    for habilidad in habilidad_factory.todas()
-                ],
-            }
-        if self.enemigo_actual and self.fase in {
-            "combate",
-            "nivel",
-            "transicion",
-            "muerte",
-        }:
-            enemigo = self.enemigo_actual
-            datos["enemigo"] = {
-                "nombre": enemigo.nombre,
-                "visual_id": "enemy_default",
-                "raza": enemigo.raza,
-                "arquetipo": enemigo.arquetipo,
-                "hp": max(0, enemigo.hp),
-                "hp_maxima": enemigo.salud_maxima,
-                "fuerza": enemigo.fuerza,
-                "destreza": enemigo.destreza,
-                "constitucion": enemigo.constitucion,
-                "velocidad": enemigo.velocidad,
-                "evasion": enemigo.evasion,
-                "arma": enemigo.arma,
-                "secundario": enemigo.secundario,
-                "estados_activos": self._estados_activos_enemigo(),
-                "habilidades": [
-                    {
-                        "id": habilidad_id,
-                        "nombre": habilidad_factory.crear(habilidad_id).nombre,
-                        "nivel": nivel,
-                        "cooldown": enemigo.cooldowns_habilidad.get(
-                            habilidad_id, 0
-                        ),
-                        "turnos_activos": enemigo.efectos_habilidad.get(
-                            habilidad_id, 0
-                        ),
-                        "activa": enemigo.habilidad_activa(habilidad_id),
-                    }
-                    for habilidad_id, nivel in enemigo.habilidades.items()
-                ],
-                "intencion": self.intencion if self.fase == "combate" else None,
-            }
-        return datos
+        return construir_estado(self)

@@ -8,6 +8,7 @@ analisis = Analysis(
         ("web", "web"),
         ("config.json", "."),
         ("items.json", "."),
+        ("crafting.json", "."),
         ("pasivas.json", "."),
         ("skills.json", "."),
     ],

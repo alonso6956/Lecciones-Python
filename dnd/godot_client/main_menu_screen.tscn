@@ -17,12 +17,29 @@ horizontal_alignment = 1
 
 [node name="NewGameButton" type="Button" parent="." unique_id=1898189105]
 layout_mode = 2
-text = "Nueva partida"
+text = "Crear personaje"
 
 [node name="LoadGameButton" type="Button" parent="." unique_id=441921049]
 layout_mode = 2
-text = "Cargar partida"
+text = "Elegir personaje"
 
 [node name="ExitButton" type="Button" parent="." unique_id=883239305]
 layout_mode = 2
 text = "Salir"
+
+[node name="TacticalButton" type="Button" parent="."]
+layout_mode = 2
+text = "Desafío táctico · Party de 3"
+disabled = true
+
+[node name="MessageLabel" type="Label" parent="."]
+layout_mode = 2
+autowrap_mode = 2
+
+[node name="WorkshopButton" type="Button" parent="."]
+layout_mode = 2
+text = "Taller y Vault compartido"
+
+[node name="ShopButton" type="Button" parent="."]
+layout_mode = 2
+text = "Tienda · Preparar personaje"

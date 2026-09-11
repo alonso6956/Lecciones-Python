@@ -17,7 +17,6 @@ class Habilidad:
     nombre: str
     descripcion: str
     atributo_escalado: str
-    tipo_arma_requerida: str
     tipo_efecto: str
     multiplicador_base: float
     bonus_dano_por_nivel: float
@@ -31,7 +30,6 @@ class Habilidad:
     causa_dano: bool = True
     duracion_turnos: int = 0
     numero_golpes: int = 1
-    requiere_mano_secundaria_libre: bool = False
     bloquear_mientras_activa: bool = False
     inesquivable: bool = False
     inbloqueable: bool = False
@@ -82,7 +80,7 @@ class Habilidad:
             dano = round(self.multiplicador_dano(nivel) * 100)
             return (
                 f"El primer golpe inflige {dano}% de daño y es inesquivable "
-                "e inbloqueable, pero respeta la armadura. La segunda daga "
+                "e inbloqueable, pero respeta la armadura. El segundo golpe "
                 "realiza un ataque normal."
             )
         if self.id == "bloqueo_contraataque":
@@ -182,6 +180,8 @@ class HabilidadFactory:
             )
 
     def crear(self, habilidad_id):
+        if not isinstance(habilidad_id, str):
+            raise ValueError("El identificador de habilidad debe ser texto.")
         try:
             return Habilidad(**self._datos[habilidad_id])
         except KeyError as error:
@@ -190,15 +190,6 @@ class HabilidadFactory:
     def todas(self):
         return [self.crear(habilidad_id) for habilidad_id in self._datos]
 
-    def para_tipo_arma(self, tipo_arma):
-        return next(
-            (
-                habilidad
-                for habilidad in self.todas()
-                if habilidad.tipo_arma_requerida == tipo_arma
-            ),
-            None,
-        )
 
 
 habilidad_factory = HabilidadFactory()

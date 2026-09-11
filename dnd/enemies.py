@@ -9,12 +9,12 @@ from items import calcular_factor_arma
 
 
 RAZAS = {
-    "Goblin": {"base": 1, "oro": (3, 5), "exp": 10},
-    "Esqueleto": {"base": 2, "oro": (5, 10), "exp": 15},
-    "Bandido": {"base": 3, "oro": (8, 13), "exp": 20},
-    "Orco": {"base": 4, "oro": (10, 15), "exp": 30},
-    "Troll": {"base": 5, "oro": (15, 22), "exp": 40},
-    "Guardián": {"base": 5, "oro": (30, 45), "exp": 100},
+    "Goblin": {"base": 1, "oro": (5, 10), "exp": 10},
+    "Esqueleto": {"base": 2, "oro": (10, 15), "exp": 15},
+    "Bandido": {"base": 3, "oro": (13, 20), "exp": 20},
+    "Orco": {"base": 4, "oro": (18, 25), "exp": 30},
+    "Troll": {"base": 5, "oro": (22, 30), "exp": 40},
+    "Guardián": {"base": 5, "oro": (28, 45), "exp": 100},
 }
 
 ARQUETIPOS = {
@@ -75,6 +75,7 @@ class Enemigo:
     efectos_habilidad: dict = field(default_factory=dict)
     sangrado_dano: int = 0
     sangrado_turnos: int = 0
+    efectos_arma: dict = field(default_factory=dict)
 
     def __post_init__(self):
         for habilidad_id in self.habilidades:
@@ -123,15 +124,8 @@ class Enemigo:
     def puede_usar_habilidad(self, habilidad_id):
         if self.nivel_habilidad(habilidad_id) < 1:
             return False
-        habilidad = habilidad_factory.crear(habilidad_id)
-        arma = item_factory.crear(self.arma)
-        secundario = item_factory.crear(self.secundario) if self.secundario else None
-        tipos = set()
-        if isinstance(arma, Arma):
-            tipos.add(arma.tipo_arma)
-        if isinstance(secundario, Secundario):
-            tipos.add(secundario.tipo_secundario)
-        return habilidad.tipo_arma_requerida in tipos
+        # Las habilidades pertenecen al arquetipo enemigo, independientemente del equipo.
+        return True
 
     def reduccion_dano_activa(self):
         mayor = 0

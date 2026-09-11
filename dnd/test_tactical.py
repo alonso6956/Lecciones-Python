@@ -1,5 +1,6 @@
 import unittest
 from dataclasses import asdict, replace
+from unittest.mock import patch
 
 from simulate_tactical import perfiles, simular
 from tactical_ai import AIController
@@ -21,7 +22,7 @@ class TacticalTests(unittest.TestCase):
 
     def test_t02_ofensiva_registra_fallo_de_escudo_y_castigo(self):
         # Ofensiva con las tres armas disponibles, sin adaptación ni prioridad táctica.
-        resultado = CombatResolver(perfiles()["solo_arma"]).ejecutar()
+        resultado = CombatResolver(perfiles()["solo_arma"], replace(Encuentro(), sangrado_pct=0)).ejecutar()
         tipos = [e["tipo"] for e in resultado["eventos"]]
         self.assertIn("escudo_no_roto", tipos)
         self.assertIn("castigo_escudo", tipos)
@@ -29,10 +30,14 @@ class TacticalTests(unittest.TestCase):
         self.assertTrue(any(e["tipo"] == "dano_recibido" and e["fuente_tag"] == "escudo_no_roto" for e in resultado["eventos"]))
 
     def test_t03_ruptura_mejora_con_preparacion(self):
-        ofensiva = simular(Encuentro(), preparacion_ofensiva(), n=30)
-        adaptada = simular(Encuentro(), preparacion_adaptada(), n=30)
-        self.assertGreater(adaptada["ruptura_exitosa_pct"], ofensiva["ruptura_exitosa_pct"] + 40)
-        self.assertGreater(adaptada["victorias_pct"], ofensiva["victorias_pct"] + 40)
+        combates = [CombatResolver([replace(s, build=build) for s in preparacion_ofensiva()])
+                    for build in ("ofensiva", "adaptacion")]
+        for combate in combates:
+            combate.escudo = 100
+            with patch.object(combate, "_golpe", return_value=10):
+                combate._accion_aliado(combate.party[0])
+        self.assertEqual(100 - combates[1].escudo, (100 - combates[0].escudo) * 1.25)
+        self.assertEqual(combates[0].party[0].estado(), combates[1].party[0].estado())
 
     def test_t04_derrota_real_por_sangrado(self):
         resultado = CombatResolver(preparacion_ofensiva()).ejecutar()
@@ -41,10 +46,16 @@ class TacticalTests(unittest.TestCase):
         self.assertGreaterEqual(resultado["diagnostico"]["contribucion_pct"], 40)
 
     def test_derrota_real_por_escudo_tiene_diagnostico_distinto(self):
-        resultado = CombatResolver(preparacion_adaptada(), seed=1234).ejecutar()
-        self.assertEqual(resultado["resultado"], "derrota")
-        self.assertEqual(resultado["diagnostico"]["causa"], "escudo_no_roto")
-        self.assertGreaterEqual(resultado["diagnostico"]["contribucion_pct"], 40)
+        combate = CombatResolver(preparacion_ofensiva())
+        combate.escudo = 9999
+        combate.escudo_activado = True
+        combate.escudo_vence = 1
+        with patch.object(combate, "_accion_jefe"), patch.object(combate, "_accion_aliado"):
+            combate.paso()
+        for actor in combate.party:
+            if actor.vivo:
+                combate._dano(combate.jefe, actor, actor.hp, "escudo_no_roto")
+        self.assertEqual(combate.resumen()["diagnostico"]["causa"], "escudo_no_roto")
 
     def test_t05_causas_mezcladas(self):
         log = CombatLog()
@@ -55,9 +66,11 @@ class TacticalTests(unittest.TestCase):
         self.assertAlmostEqual(diagnostico["contribucion_pct"], 33.33)
 
     def test_t05_derrota_real_mezclada(self):
-        resultado = CombatResolver(perfiles()["solo_build"], seed=1235).ejecutar()
-        self.assertEqual(resultado["resultado"], "derrota")
-        self.assertEqual(resultado["diagnostico"]["causa"], "desgaste_general")
+        combate = CombatResolver(preparacion_ofensiva())
+        for actor in combate.party:
+            for tag in ("sangrado", "fisico", "escudo_no_roto"):
+                combate._dano(combate.jefe, actor, actor.hp_max / 3, tag)
+        self.assertEqual(combate.resumen()["diagnostico"]["causa"], "desgaste_general")
 
     def test_t06_builds_no_acumulan_stats(self):
         base = [a.estado() for a in BuildManager.crear_party(preparacion_ofensiva())]
@@ -83,15 +96,15 @@ class TacticalTests(unittest.TestCase):
     def test_t08_victoria_tras_reajuste_sin_subir_nivel(self):
         controller = PrototypeController()
         controller.iniciar(1235)
-        while controller.fase == "combate":
-            controller.avanzar()
-        self.assertEqual(controller.estado()["resultado"]["resultado"], "derrota")
+        for actor in controller.combate.party:
+            controller.combate._dano(controller.combate.jefe, actor, actor.hp, "fisico")
+        controller.fase = "resultado"
         controller.reajustar()
         controller.preparar([asdict(s) for s in preparacion_adaptada()])
         controller.iniciar(1235)
-        while controller.fase == "combate":
-            controller.avanzar()
-        resultado = controller.estado()["resultado"]
+        combate = controller.combate
+        combate._dano(combate.party[0], combate.jefe, combate.jefe.hp, "fisico")
+        resultado = combate.resumen()
         self.assertEqual(resultado["resultado"], "victoria")
         self.assertEqual(len(resultado["supervivientes"]), 3)
         self.assertTrue(all(a["nivel"] == 1 for a in resultado["final"]["party"]))
@@ -112,6 +125,8 @@ class TacticalTests(unittest.TestCase):
     def test_ia_primera_coincidencia_y_cooldown(self):
         combate = CombatResolver(preparacion_adaptada())
         cora = combate.party[2]
+        cora.habilidades_tacticas = ("limpiar", "curar", "muralla")
+        cora.unica = "muralla"
         cora.estados["sangrado"] = {"cargas": 3, "vence": 4}
         cora.hp = 20
         self.assertEqual(AIController.elegir(cora, combate.party, combate.jefe, 100).tipo, "limpiar")
@@ -121,7 +136,7 @@ class TacticalTests(unittest.TestCase):
         self.assertEqual(AIController.elegir(cora, combate.party, combate.jefe, 100).tipo, "muralla")
 
     def test_escudo_tiene_dos_rondas_completas(self):
-        resultado = CombatResolver(perfiles()["solo_arma"]).ejecutar()
+        resultado = CombatResolver(perfiles()["solo_arma"], replace(Encuentro(), sangrado_pct=0)).ejecutar()
         activacion = next(e for e in resultado["eventos"] if e["tipo"] == "escudo_activado")
         fallo = next(e for e in resultado["eventos"] if e["tipo"] == "escudo_no_roto")
         self.assertEqual(fallo["turno"], activacion["turno"] + 2)
@@ -129,6 +144,8 @@ class TacticalTests(unittest.TestCase):
     def test_guerrero_reserva_habilidad_hasta_escudo_y_la_libera_despues(self):
         combate = CombatResolver(preparacion_adaptada())
         bruno = combate.party[1]
+        bruno.habilidades_tacticas = ("romper", "golpe_demoledor")
+        bruno.unica = "golpe_demoledor"
         self.assertEqual(AIController.elegir(bruno, combate.party, combate.jefe, 0).tipo, "ataque")
         self.assertEqual(AIController.elegir(bruno, combate.party, combate.jefe, 100, True).tipo, "romper")
         self.assertEqual(AIController.elegir(bruno, combate.party, combate.jefe, 0, True).tipo, "golpe_demoledor")

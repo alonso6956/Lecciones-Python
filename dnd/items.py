@@ -3,22 +3,6 @@
 from combat_formulas import calcular_mitigacion_armadura
 from item import Arma, Armadura, Consumible, Secundario
 from item_factory import item_factory
-from pasiva_factory import pasiva_factory
-
-
-def datos_pasiva_arma(arma):
-    pasiva = pasiva_factory.para_arma(arma)
-    if not pasiva:
-        return None
-    return {
-        "nombre": pasiva.nombre,
-        "descripcion": pasiva.descripcion,
-        "efecto": pasiva.efecto,
-        "valor": pasiva.valor,
-        "probabilidad": pasiva.probabilidad,
-        "dano_sangrado": pasiva.dano_sangrado,
-        "numero_ataques": pasiva.numero_ataques,
-    }
 
 
 def _construir_catalogo_compatible():
@@ -30,6 +14,8 @@ def _construir_catalogo_compatible():
         "materiales": {},
     }
     for item in item_factory.todos():
+        if item.precio == 0:
+            continue
         if isinstance(item, Arma):
             catalogo["armas"][item.nombre] = {
                 "id": item.id,
@@ -40,7 +26,6 @@ def _construir_catalogo_compatible():
                 "dos_manos": item.dos_manos,
                 "estadistica_escalado": item.estadistica_escalado,
                 "crecimiento_por_punto": item.crecimiento_por_punto,
-                "pasiva": datos_pasiva_arma(item),
                 "precio": item.precio,
                 "requisitos": dict(item.requisitos),
             }

@@ -48,7 +48,8 @@ async function changeSelection(index, key, value) {
   const next = state.selecciones.map((s) => ({...s}));
   if (key === "personaje_id") {
     const other = next.findIndex((s) => s.personaje_id === value);
-    [next[index], next[other]] = [next[other], next[index]];
+    if (other >= 0) [next[index], next[other]] = [next[other], next[index]];
+    else next[index] = {...next[index], personaje_id: value, arma: state.catalogo.personajes[value].arma_equipada};
   } else next[index][key] = value;
   await mutate("preparar", {selecciones: next});
 }
@@ -64,19 +65,41 @@ function renderPreparation() {
     field(card, "Personaje", catalog.personajes, selection.personaje_id, (value) => changeSelection(index, "personaje_id", value));
     card.append(node("p", data.descripcion, "unique"));
     const stats = node("div", undefined, "stats");
-    for (const [label, value] of [["Vida", hero.hp_max], ["Ataque", hero.ataque], ["Defensa", hero.defensa], ["Velocidad", hero.velocidad]]) {
+    for (const [label, value] of statValues(hero)) {
       const stat = node("span", `${label} `);
       stat.append(node("strong", value));
       stats.append(stat);
     }
     card.append(stats);
     for (const [key, label, choices] of [["build", "Build", catalog.builds], ["arma", "Arma", catalog.armas], ["prioridad", "Prioridad de IA", catalog.prioridades]]) {
-      field(card, label, choices, selection[key], (value) => changeSelection(index, key, value));
+      const available = key === "arma" && data.armas ? Object.fromEntries(Object.entries(choices).filter(([id]) => data.armas.includes(id))) : choices;
+      field(card, label, available, selection[key], (value) => changeSelection(index, key, value));
       card.append(node("p", choices[selection[key]].descripcion, "description"));
     }
     card.append(node("p", `Resistencia final al sangrado: ${hero.resistencia_sangrado}%`, "muted"));
     el("party").append(card);
   });
+}
+
+function statValues(actor) {
+  const percent = (value) => `${Math.round(value * 100)}%`;
+  const values = [["Vida máxima", actor.hp_max],
+    ["Fuerza", actor.fuerza], ["Destreza", actor.destreza], ["Constitución", actor.constitucion],
+    ["Daño", `${actor.ataque_minimo}–${actor.ataque_maximo}`],
+    ["Armadura", actor.armadura], ["Mitigación", percent(actor.mitigacion_armadura)],
+    ["Velocidad", actor.velocidad], ["Evasión", percent(actor.evasion)],
+    ["Arma", actor.arma], ["Secundario", actor.secundario || "Ninguno"],
+    ["Bloqueo", percent(actor.probabilidad_bloqueo)],
+    ["Daño bloqueado", percent(actor.porcentaje_dano_bloqueado)]];
+  if (actor.critico_arma !== undefined) values.push(
+    ["Crítico del arma", percent(actor.critico_arma)], ["Penetración", actor.penetracion_arma],
+    ["Alcance", actor.alcance_arma], ["Durabilidad", actor.durabilidad_arma]);
+  if (actor.energia_maxima !== undefined) values.push(
+    ["Energía máxima", actor.energia_maxima],
+    ["Peso / capacidad", `${actor.peso_equipado} / ${actor.capacidad_peso}`],
+    ["Penalización de velocidad", actor.penalizacion_velocidad_peso],
+    ["Penalización de evasión", percent(actor.penalizacion_evasion_peso)]);
+  return values;
 }
 
 function renderHealth() {
@@ -93,6 +116,9 @@ function renderHealth() {
     hp.value = actor.hp;
     hp.setAttribute("aria-label", `Vida de ${actor.nombre}`);
     card.append(hp);
+    const stats = node("div", undefined, "stats");
+    for (const [label, value] of statValues(actor)) stats.append(node("span", `${label}: ${value}`));
+    card.append(stats);
     const effects = Object.entries(actor.estados).map(([tag, effect]) => tag === "sangrado" ? `Sangrado ×${effect.cargas}` : tag === "vulnerable" ? "Aturdido / vulnerable" : "Muralla");
     card.append(node("p", effects.join(" · ") || "Sin estados", "effects"));
     if (boss) {
@@ -109,7 +135,7 @@ function renderHealth() {
 
 const abilities = {ataque: "Ataque básico", limpiar: "Limpiar sangrado", curar: "Curar", romper: "Romper escudo", golpe_preciso: "Golpe preciso", golpe_demoledor: "Golpe demoledor", muralla: "Muralla", corte_sangriento: "Corte sangriento"};
 function eventText(event) {
-  const names = {...Object.fromEntries(Object.entries(state.catalogo.personajes).map(([id, data]) => [id, data.nombre])), [state.encuentro.id]: "Guardián"};
+  const names = {...Object.fromEntries(Object.entries(state.catalogo.personajes).map(([id, data]) => [id, data.nombre])), [state.encuentro.id]: state.encuentro.nombre};
   const actor = names[event.actor_id] || "";
   const target = names[event.objetivo_id] || "";
   const amount = event.cantidad === null ? "" : Number(event.cantidad).toFixed(1);
@@ -131,6 +157,8 @@ function eventText(event) {
     case "turno_omitido": return "El jefe pierde su acción por la ruptura del escudo.";
     case "muerte": return `${target} cae por ${tag}.`;
     case "critico": return `${actor} consigue un golpe crítico.`;
+    case "esquiva": return `${actor} esquiva el ataque de ${target}.`;
+    case "bloqueo": return `${actor} bloquea parte del ataque de ${target}.`;
     case "victoria": return "Victoria: el Guardián ha caído.";
     case "derrota": return event.metadata.motivo === "limite_seguridad" ? "Fin por límite de seguridad." : "Derrota: ha caído toda la party.";
     default: return event.tipo;
@@ -171,12 +199,16 @@ function renderResult() {
 }
 
 function render() {
+  el("start").disabled = state.tactico_disponible === false;
+  el("prepFields").disabled = state.tactico_disponible === false;
+  el("lockMessage").textContent = state.mensaje_bloqueo || "";
   el("preparation").hidden = state.fase !== "preparacion";
   el("battle").hidden = !state.combate;
   el("result").hidden = state.fase !== "resultado";
   el("logSection").hidden = !state.combate;
   el("attempts").textContent = `Intentos: ${state.intentos}`;
-  el("bossStats").textContent = `${state.encuentro.hp} HP · ${state.encuentro.escudo} escudo · Velocidad ${state.encuentro.velocidad}`;
+  el("bossTitle").textContent = state.encuentro.nombre;
+  el("bossStats").textContent = `${state.encuentro.nombre} · ${statValues(state.encuentro).map(([label, value]) => `${label}: ${value}`).join(" · ")} · Escudo de encuentro: ${state.encuentro.escudo}`;
   for (const [id, phase] of [["stepPrep", "preparacion"], ["stepFight", "combate"], ["stepResult", "resultado"]]) el(id).classList.toggle("active", state.fase === phase);
   if (state.fase === "preparacion") renderPreparation();
   if (state.combate) { renderHealth(); renderLog(); }
@@ -205,8 +237,8 @@ async function mutate(action, body) {
   } catch (error) { fail(error); }
   finally {
     busy = false;
-    el("prepFields").disabled = false;
-    el("start").disabled = false;
+    el("prepFields").disabled = state?.tactico_disponible === false;
+    el("start").disabled = state?.tactico_disponible === false;
     el("adjust").disabled = false;
   }
 }

@@ -3,6 +3,7 @@ extends VBoxContainer
 
 signal stat_requested(stat_name: String)
 signal skill_requested(skill_id: String)
+signal class_requested(class_id: String)
 
 const STATS := {
 	"fuerza": "Fuerza",
@@ -20,6 +21,12 @@ func render_state(state: Dictionary) -> void:
 	title_label.text = "Nivel %s · Elige tus mejoras" % player.get("nivel", 1)
 	_render_stats(player)
 	_render_skills(player)
+	if player.get("clase_pendiente", false):
+		for class_id in state.get("clases", {}):
+			var button := Button.new()
+			button.text = "Elegir " + str(state["clases"][class_id]["nombre"])
+			button.pressed.connect(func(): class_requested.emit(class_id))
+			skills_container.add_child(button)
 
 
 func set_request_pending(pending: bool) -> void:
@@ -48,7 +55,7 @@ func _render_skills(player: Dictionary) -> void:
 	_clear_container(skills_container)
 	var available_points := int(player.get("puntos_habilidad", 0))
 	for skill in player.get("habilidades", []):
-		if not skill.get("cumple_tipo_equipo", false):
+		if not skill.get("cumple_requisito", false):
 			continue
 		var skill_id := str(skill.get("id", ""))
 		var skill_name := str(skill.get("nombre", "Habilidad"))

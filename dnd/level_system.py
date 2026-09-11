@@ -1,5 +1,5 @@
 class SistemaNiveles:
-    def __init__(self, exp_por_nivel=30, nivel_maximo=20):
+    def __init__(self, exp_por_nivel=30, nivel_maximo=30):
         self.exp_por_nivel = exp_por_nivel
         self.nivel_maximo = nivel_maximo
 

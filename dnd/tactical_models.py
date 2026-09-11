@@ -4,35 +4,38 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from character import Personaje
-from enemies import Enemigo
+from enemies import crear_enemigo
+from combat_stats import estadisticas_combate, defensa_total
 from item_factory import item_factory
+from character_roster import deserializar_personaje
+from progression import CLASES
 
 
 ROSTER = {
     "aria": {"nombre": "Aria", "rol": "Pícara", "stats": {"fuerza": 4, "destreza": 6, "constitucion": 5},
-             "unica": "golpe_preciso", "descripcion": "Golpe preciso: daño concentrado cada 3 rondas."},
+             "descripcion": "Personaje de prueba con estadísticas de Dungeon."},
     "bruno": {"nombre": "Bruno", "rol": "Guerrero", "stats": {"fuerza": 6, "destreza": 3, "constitucion": 7},
-              "unica": "golpe_demoledor", "descripcion": "Golpe demoledor: ataque potente; puede reservar su habilidad para romper escudos."},
+              "descripcion": "Personaje de prueba con estadísticas de Dungeon."},
     "cora": {"nombre": "Cora", "rol": "Tanque", "stats": {"fuerza": 3, "destreza": 2, "constitucion": 10},
-             "unica": "muralla", "descripcion": "Muralla: reduce el daño directo del grupo durante 2 rondas. Puede curar aliados."},
+             "descripcion": "Personaje de prueba con estadísticas de Dungeon."},
 }
 
 BUILDS = {
-    "ofensiva": {"nombre": "Ofensiva", "ataque": 1.20, "resistencia_sangrado": 0.0,
-                 "descripcion": "+20% ataque y +1 velocidad; mayor presión sin protección contra sangrado."},
-    "adaptacion": {"nombre": "Adaptación", "ataque": 1.0, "resistencia_sangrado": 0.65,
-                   "descripcion": "65% resistencia al sangrado, limpieza y +25% ruptura; menor daño bruto."},
+    "ofensiva": {"nombre": "Ofensiva", "ataque": 1.0, "resistencia_sangrado": 0.0,
+                 "descripcion": "Estadísticas del personaje en Dungeon."},
+    "adaptacion": {"nombre": "Adaptación", "ataque": 1.0, "resistencia_sangrado": 0.0,
+                   "descripcion": "+25% ruptura del escudo; estadísticas del personaje en Dungeon."},
 }
 
-# Extensión táctica del catálogo, sin alterar las pasivas del modo original.
+# Propiedades físicas del equipo. Ningún arma concede habilidades.
 ARMAS = {
-    "dagas_hierro": {"velocidad": 3, "critico": 0.15, "ruptura": 0.5, "resistencia_sangrado": 0.0,
-                     "descripcion": "+3 velocidad, 15% crítico y +35% daño contra un jefe vulnerable."},
-    "maza_hierro": {"velocidad": -1, "critico": 0.0, "ruptura": 1.5, "resistencia_sangrado": 0.0,
-                   "descripcion": "Daño pesado: ruptura x1,5; habilita Romper escudo (x4)."},
-    "espada_hierro": {"velocidad": 0, "critico": 0.0, "ruptura": 0.5, "resistencia_sangrado": 0.25,
-                     "descripcion": "Daño sostenido: ignora 35% de armadura y reduce 25% el sangrado restante."},
+    "dagas_hierro": {"velocidad": 0, "ruptura": 0.5, "descripcion": "Ruptura x0,5."},
+    "maza_hierro": {"velocidad": 0, "ruptura": 1.5, "descripcion": "Ruptura x1,5."},
+    "espada_hierro": {"velocidad": 0, "ruptura": 0.5, "descripcion": "Ruptura x0,5."},
 }
+for _arma in item_factory.todos():
+    if hasattr(_arma, "ataque"):
+        ARMAS.setdefault(_arma.id, {"velocidad": 0, "ruptura": 0.5, "descripcion": "Equipo sin habilidades."})
 
 PRIORIDADES = {
     "agresiva": {"nombre": "Agresiva", "reglas": ["unica", "vulnerable", "romper", "curar", "limpiar"],
@@ -56,14 +59,26 @@ class Actor:
 
     id: str
     modelo: Any
-    ataque: float
-    defensa: float
-    velocidad: float
     rol: str
     seleccion: Seleccion = None
     resistencia_sangrado: float = 0.0
     estados: dict = field(default_factory=dict)
     cooldowns: dict = field(default_factory=dict)
+    habilidades_tacticas: tuple = ()
+    unica: str = None
+
+    @property
+    def ataque(self):
+        datos = estadisticas_combate(self.modelo)
+        return (datos["ataque_minimo"] + datos["ataque_maximo"]) / 2
+
+    @property
+    def defensa(self):
+        return defensa_total(self.modelo)
+
+    @property
+    def velocidad(self):
+        return self.modelo.velocidad
 
     @property
     def hp(self):
@@ -82,7 +97,7 @@ class Actor:
         return self.hp > 0
 
     def estado(self):
-        return {"id": self.id, "nombre": self.modelo.nombre, "rol": self.rol,
+        return {**estadisticas_combate(self.modelo), "id": self.id, "nombre": self.modelo.nombre, "rol": self.rol,
                 "hp": round(self.hp, 2), "hp_max": self.hp_max,
                 "ataque": round(self.ataque, 2), "defensa": self.defensa, "velocidad": self.velocidad,
                 "nivel": getattr(self.modelo, "nivel", 1),
@@ -94,10 +109,8 @@ class Actor:
 @dataclass(frozen=True)
 class Encuentro:
     id: str = "guardian_verdugo"
-    hp: float = 440
-    ataque: float = 22
-    defensa: float = 10
-    velocidad: float = 12
+    raza: str = "Guardián"
+    arquetipo: str = "Jefe"
     escudo: float = 105
     ventana_rondas: int = 2
     sangrado_pct: float = 0.04
@@ -107,42 +120,59 @@ class Encuentro:
     limite_rondas: int = 80
 
     def __post_init__(self):
-        if min(self.hp, self.escudo, self.ventana_rondas, self.sangrado_duracion,
+        if min(self.escudo, self.ventana_rondas, self.sangrado_duracion,
                self.sangrado_max, self.limite_rondas) <= 0:
             raise ValueError("Vida, escudo, duraciones y límite deben ser positivos.")
-        if min(self.ataque, self.defensa, self.velocidad, self.sangrado_pct, self.castigo) < 0:
+        if min(self.sangrado_pct, self.castigo) < 0:
             raise ValueError("Los valores de combate no pueden ser negativos.")
 
     def crear_jefe(self):
-        modelo = Enemigo("Guardián", "Verdugo", 6, 3, 8, self.hp, self.hp, "Morning Star", (0, 0), 0)
-        return Actor(self.id, modelo, self.ataque, self.defensa, self.velocidad, "Jefe")
+        return Actor(self.id, crear_enemigo(self.raza, self.arquetipo), "Jefe")
+
+    def estado(self):
+        from dataclasses import asdict
+        return {**asdict(self), **self.crear_jefe().estado()}
 
 
 class BuildManager:
     @staticmethod
-    def validar(selecciones):
-        if len(selecciones) != 3 or {s.personaje_id for s in selecciones} != set(ROSTER):
+    def validar(selecciones, roster=None):
+        for datos in roster or []:
+            for custom in datos.get("custom", {}).values():
+                arma = item_factory.registrar_instancia(custom)
+                ARMAS.setdefault(arma.id, {"velocidad": 0, "ruptura": 0.5, "descripcion": "Arma fabricada; mismas estadísticas que Dungeon."})
+        catalogo = ROSTER if roster is None else {d["id"]: d for d in roster}
+        ids = {s.personaje_id for s in selecciones}
+        if len(selecciones) != 3 or len(ids) != 3 or not ids.issubset(catalogo):
             raise ValueError("Selecciona los tres personajes, sin duplicados.")
         for s in selecciones:
             if s.build not in BUILDS or s.arma not in ARMAS or s.prioridad not in PRIORIDADES:
                 raise ValueError("Build, arma o prioridad no válida.")
+            if roster is not None:
+                modelo = deserializar_personaje(catalogo[s.personaje_id])
+                if not modelo.inventario.cantidad(s.arma) or not item_factory.crear(s.arma).cumple_requisitos(modelo):
+                    raise ValueError("Solo puedes usar armas compradas por ese personaje y cuyos requisitos cumpla.")
 
     @classmethod
-    def crear_party(cls, selecciones):
-        cls.validar(selecciones)
+    def crear_party(cls, selecciones, roster=None):
+        cls.validar(selecciones, roster)
+        catalogo = ROSTER if roster is None else {d["id"]: d for d in roster}
         party = []
         for s in selecciones:
-            datos = ROSTER[s.personaje_id]
-            modelo = Personaje(datos["nombre"], s.arma, dict(datos["stats"]))
-            arma = item_factory.crear(s.arma)
-            tactica = ARMAS[s.arma]
-            build = BUILDS[s.build]
-            # Promedio del rango de arma, sin nuevas tiradas: azar solo en crítico/iniciativa.
-            ataque = (modelo.calcular_dano_base() + sum(arma.ataque) / 2) * 2 * build["ataque"]
-            resistencia = 1 - (1 - build["resistencia_sangrado"]) * (1 - tactica["resistencia_sangrado"])
-            party.append(Actor(s.personaje_id, modelo, ataque, modelo.calcular_defensa_base(),
-                               max(1, modelo.velocidad + tactica["velocidad"] + (s.build == "ofensiva")),
-                               datos["rol"], s, resistencia))
+            datos = catalogo[s.personaje_id]
+            if roster is None:
+                # Fixtures del simulador aislado; nunca se usan en el servidor.
+                modelo = Personaje(datos["nombre"], s.arma, dict(datos["stats"]))
+                rol = datos["rol"]
+            else:
+                modelo = deserializar_personaje(datos)
+                anterior = modelo.salud_maxima
+                modelo.inventario.equipar(s.arma, modelo)
+                modelo.recalcular_por_equipo(anterior)
+                modelo.hp = modelo.salud_maxima
+                rol = CLASES.get(modelo.clase, {}).get("nombre", "Sin clase")
+            actor = Actor(s.personaje_id, modelo, rol, s)
+            party.append(actor)
         return party
 
 

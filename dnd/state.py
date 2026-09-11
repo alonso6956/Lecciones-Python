@@ -1,8 +1,9 @@
 """Presentación del estado público consumido por las interfaces."""
 
-from combat_formulas import calcular_mitigacion_armadura
+from combat_stats import estadisticas_combate
 from habilidades import habilidad_factory
 from items import objetos
+from progression import CLASES, NIVEL_DESBLOQUEO_CHISPA, habilidades_de_clase
 
 
 def estados_activos_jugador(motor):
@@ -109,11 +110,6 @@ def estados_activos_enemigo(motor):
 
 def construir_estado(motor):
     """Devuelve el contrato público compartido por las interfaces."""
-    armas_iniciales = [
-        {"nombre": nombre, **datos}
-        for nombre, datos in objetos["armas"].items()
-        if datos.get("inicial", False)
-    ]
     datos = {
         "fase": motor.fase,
         "resultado": motor.resultado,
@@ -121,25 +117,28 @@ def construir_estado(motor):
         "habitaciones_totales": motor.HABITACIONES_TOTALES,
         "registro": motor.registro,
         "eventos": motor.eventos,
-        "armas_iniciales": armas_iniciales,
+        "clases": CLASES,
         "jugador": None,
         "enemigo": None,
-        "tienda": objetos if motor.fase == "tienda" else None,
+        "tienda": None,
     }
     if motor.jugador:
         jugador = motor.jugador
-        dano_base = jugador.calcular_dano_base()
-        ataque_arma = objetos["armas"][jugador.arma]["ataque"]
         datos["jugador"] = {
+            **estadisticas_combate(jugador),
+            "id": jugador.id,
             "nombre": jugador.nombre,
+            "clase": jugador.clase,
+            "clase_nombre": CLASES.get(jugador.clase, {}).get("nombre", "Sin clase"),
+            "chispa": jugador.chispa,
+            "chispa_nivel_desbloqueo": NIVEL_DESBLOQUEO_CHISPA,
+            "clase_pendiente": jugador.nivel >= 10 and jugador.clase is None,
             "visual_id": "player_default",
-            "arma": jugador.arma,
             "inventario": jugador.inventario.estado(jugador),
             "equipamiento": jugador.inventario.estado_equipamiento(),
             "hp": max(0, jugador.hp),
-            "salud_maxima": jugador.salud_maxima,
             "energia": motor.energia,
-            "energia_maxima": motor.ENERGIA_MAXIMA,
+            "energia_maxima": motor.energia_maxima,
             "nivel": jugador.nivel,
             "nivel_maximo": motor.sistema_niveles.nivel_maximo,
             "exp": jugador.exp,
@@ -147,9 +146,6 @@ def construir_estado(motor):
                 motor.sistema_niveles.experiencia_siguiente_nivel(jugador)
             ),
             "oro": jugador.oro,
-            "fuerza": jugador.fuerza_total,
-            "destreza": jugador.destreza_total,
-            "constitucion": jugador.constitucion_total,
             "stats_base": {
                 "fuerza": jugador.fuerza,
                 "destreza": jugador.destreza,
@@ -158,28 +154,11 @@ def construir_estado(motor):
             "bonus_equipo": jugador.inventario.bonificaciones_atributos(),
             "puntos_estadistica": jugador.puntos_estadistica,
             "puntos_habilidad": jugador.puntos_habilidad,
-            "dano_base": dano_base,
-            "ataque_minimo": dano_base + ataque_arma[0],
-            "ataque_maximo": dano_base + ataque_arma[1],
-            "armadura": motor._defensa_total_jugador(),
-            "mitigacion_armadura": calcular_mitigacion_armadura(
-                motor._defensa_total_jugador()
-            ),
-            "armadura_equipo": jugador.inventario.armadura_equipo(),
-            "mitigacion_armadura_equipo": calcular_mitigacion_armadura(
-                jugador.inventario.armadura_equipo()
-            ),
-            "velocidad": jugador.velocidad,
             "evasion": motor._evasion_total_jugador(),
-            "peso_equipado": jugador.peso_equipado,
-            "capacidad_peso": jugador.capacidad_peso,
-            "penalizacion_evasion_peso": jugador.penalizaciones_peso["evasion"],
-            "penalizacion_velocidad_peso": jugador.penalizaciones_peso["velocidad"],
             "defendiendo": motor.is_defending,
             "mitigar_dano_activo": jugador.mitigar_dano_activo,
             "mitigar_dano_turnos": jugador.mitigar_dano_turnos,
             "estados_activos": motor._estados_activos_jugador(),
-            "ataque_arma": ataque_arma,
             "habilidades": [
                 {
                     "id": habilidad.id,
@@ -192,16 +171,10 @@ def construir_estado(motor):
                     "nivel": jugador.nivel_habilidad(habilidad.id),
                     "nivel_maximo": habilidad.nivel_maximo,
                     "atributo": habilidad.atributo_escalado,
-                    "arma_requerida": habilidad.tipo_arma_requerida,
+                    "clase_requerida": jugador.clase,
                     "desbloqueada": jugador.nivel_habilidad(habilidad.id) > 0,
                     "cumple_requisito": jugador.cumple_requisitos_habilidad(
                         habilidad.id
-                    ),
-                    "cumple_tipo_equipo": jugador.inventario.cumple_tipo_equipo(
-                        habilidad.tipo_arma_requerida
-                    ),
-                    "mano_secundaria_libre": (
-                        jugador.inventario.secundario_equipado is None
                     ),
                     "costo_energia": habilidad.costo_energia,
                     "cooldown_turnos": habilidad.cooldown_turnos,
@@ -216,9 +189,6 @@ def construir_estado(motor):
                     "tipo_efecto": habilidad.tipo_efecto,
                     "numero_golpes": habilidad.numero_golpes,
                     "dano_total_por_golpe": habilidad.multiplicador_base,
-                    "requiere_mano_secundaria_libre": (
-                        habilidad.requiere_mano_secundaria_libre
-                    ),
                     "causa_dano": habilidad.causa_dano,
                     "duracion": habilidad.duracion_turnos,
                     "turnos_activos": motor.efectos_habilidades.get(
@@ -231,7 +201,7 @@ def construir_estado(motor):
                         else motor.efectos_habilidades.get(habilidad.id, 0) > 0
                     ),
                 }
-                for habilidad in habilidad_factory.todas()
+                for habilidad in (habilidad_factory.crear(h) for h in habilidades_de_clase(jugador.clase))
             ],
         }
     if motor.enemigo_actual and motor.fase in {
@@ -242,19 +212,13 @@ def construir_estado(motor):
     }:
         enemigo = motor.enemigo_actual
         datos["enemigo"] = {
+            **estadisticas_combate(enemigo),
             "nombre": enemigo.nombre,
             "visual_id": "enemy_default",
             "raza": enemigo.raza,
             "arquetipo": enemigo.arquetipo,
             "hp": max(0, enemigo.hp),
             "hp_maxima": enemigo.salud_maxima,
-            "fuerza": enemigo.fuerza,
-            "destreza": enemigo.destreza,
-            "constitucion": enemigo.constitucion,
-            "velocidad": enemigo.velocidad,
-            "evasion": enemigo.evasion,
-            "arma": enemigo.arma,
-            "secundario": enemigo.secundario,
             "estados_activos": motor._estados_activos_enemigo(),
             "habilidades": [
                 {
