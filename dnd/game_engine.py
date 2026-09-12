@@ -49,7 +49,6 @@ class MotorJuego:
         self.roster = roster if roster is not None else CharacterRoster()
         self.rng = rng or random.Random()
         self.sistema_niveles = SistemaNiveles(
-            exp_por_nivel=30,
             nivel_maximo=Personaje.NIVEL_MAXIMO,
         )
         self.reiniciar()

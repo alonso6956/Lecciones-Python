@@ -29,7 +29,7 @@ text = "Salir"
 
 [node name="TacticalButton" type="Button" parent="."]
 layout_mode = 2
-text = "Desafío táctico · Party de 3"
+text = "Desafío táctico · Hasta 6 personajes"
 disabled = true
 
 [node name="MessageLabel" type="Label" parent="."]
@@ -38,7 +38,11 @@ autowrap_mode = 2
 
 [node name="WorkshopButton" type="Button" parent="."]
 layout_mode = 2
-text = "Taller y Vault compartido"
+text = "Taller de crafteo"
+
+[node name="VaultButton" type="Button" parent="."]
+layout_mode = 2
+text = "Vault compartido"
 
 [node name="ShopButton" type="Button" parent="."]
 layout_mode = 2

@@ -8,6 +8,7 @@ from tactical_combat import CombatResolver
 from tactical_models import ARMAS, BUILDS, PRIORIDADES, ROSTER, BuildManager, Encuentro, Seleccion, preparacion_ofensiva
 from character_roster import MENSAJE_BLOQUEO
 from progression import CLASES
+from tactical_board import Tablero, TERRENOS, MANIOBRAS
 
 
 class PrototypeController:
@@ -19,6 +20,7 @@ class PrototypeController:
         self.combate = None
         self.fase = "preparacion"
         self.intentos = 0
+        self.tablero = None
 
     def _datos_roster(self):
         return self.roster.personajes if self.roster is not None else None
@@ -28,24 +30,28 @@ class PrototypeController:
             raise ValueError(MENSAJE_BLOQUEO)
 
     def _sincronizar(self):
-        if self.roster is None or self.fase != "preparacion":
+        if self.fase != "preparacion":
             return
-        datos = self.roster.personajes
-        if len(datos) < 3:
-            self.selecciones = []
-            return
-        try:
-            BuildManager.validar(self.selecciones, datos)
-        except ValueError:
-            self.selecciones = [Seleccion(d["id"], arma=d["arma_equipada"]) for d in datos[:3]]
+        if self.roster is not None:
+            datos = self.roster.personajes
+            if len(datos) < 3:
+                self.selecciones = []
+            else:
+                try:
+                    BuildManager.validar(self.selecciones, datos)
+                except ValueError:
+                    self.selecciones = [Seleccion(d["id"], arma=d["arma_equipada"]) for d in datos[:3]]
+        ids = [s.personaje_id for s in self.selecciones]
+        if self.tablero is None or self.tablero.aliados != set(ids):
+            self.tablero = Tablero.inicial(ids, self.encuentro.id)
 
     def preparar(self, datos):
         with self.lock:
             self._exigir_roster()
             if self.fase != "preparacion":
                 raise ValueError("Vuelve a preparación antes de cambiar el equipo.")
-            if not isinstance(datos, list) or len(datos) != 3:
-                raise ValueError("La party debe contener tres selecciones.")
+            if not isinstance(datos, list) or not 3 <= len(datos) <= 6:
+                raise ValueError("El grupo debe contener entre 3 y 6 selecciones.")
             try:
                 selecciones = [Seleccion(**d) for d in datos]
                 if any(not isinstance(v, str) for s in selecciones for v in asdict(s).values()):
@@ -54,7 +60,29 @@ class PrototypeController:
             except (TypeError, KeyError) as error:
                 raise ValueError("Selección de party no válida.") from error
             # Validación completa antes de publicar la nueva configuración.
-            self.selecciones = selecciones
+            self._sincronizar()
+            ids = [s.personaje_id for s in selecciones]
+            plan = self.tablero.plan()
+            anteriores = [s.personaje_id for s in self.selecciones]
+            posiciones = {k: plan["posiciones"][k] for k in ids if k in plan["posiciones"]}
+            libres = [plan["posiciones"][k] for k in anteriores if k not in ids]
+            for k in ids:
+                if k not in posiciones:
+                    posiciones[k] = libres.pop(0) if libres else next(
+                        [x, y] for y in range(8) for x in range(3) if [x, y] not in posiciones.values())
+            plan["posiciones"] = {**posiciones, self.encuentro.id: plan["posiciones"][self.encuentro.id]}
+            tablero = Tablero(plan, ids, self.encuentro.id)
+            self.selecciones, self.tablero = selecciones, tablero
+            return self.estado()
+
+    def configurar_campo(self, datos):
+        with self.lock:
+            self._exigir_roster()
+            if self.fase != "preparacion":
+                raise ValueError("El campo solo se puede editar antes de iniciar el combate.")
+            self._sincronizar()
+            tablero = Tablero(datos, [s.personaje_id for s in self.selecciones], self.encuentro.id)
+            self.tablero = tablero
             return self.estado()
 
     def iniciar(self, seed=1234):
@@ -65,7 +93,7 @@ class PrototypeController:
                 raise ValueError("El combate solo puede iniciarse desde preparación.")
             if type(seed) is not int or not 0 <= seed <= 2**32 - 1:
                 raise ValueError("La semilla debe ser un entero entre 0 y 4294967295.")
-            self.combate = CombatResolver(self.selecciones, self.encuentro, seed, self._datos_roster())
+            self.combate = CombatResolver(self.selecciones, self.encuentro, seed, self._datos_roster(), self.tablero.plan())
             self.fase = "combate"
             self.intentos += 1
             return self.estado()
@@ -101,6 +129,8 @@ class PrototypeController:
                 # El log completo ya viaja en eventos; no duplicar todas las rondas en HTTP.
                 resultado = {k: v for k, v in resultado.items() if k not in ("frames", "eventos")}
             return {"fase": self.fase, "intentos": self.intentos,
+                    "tablero": self.combate.tablero.estado() if self.combate else self.tablero.estado(),
+                    "reproduccion": self.combate.vistas if self.combate else [],
                     "tactico_disponible": disponible, "mensaje_bloqueo": "" if disponible else MENSAJE_BLOQUEO,
                     "selecciones": [asdict(s) for s in self.selecciones],
                     "party": ([a.estado() for a in (self.combate.party if self.combate else BuildManager.crear_party(self.selecciones, self._datos_roster()))] if disponible else []),
@@ -108,5 +138,6 @@ class PrototypeController:
                     "eventos": self.combate.log.serializar() if self.combate else [],
                     "resultado": resultado,
                     "catalogo": {"personajes": personajes, "builds": BUILDS, "prioridades": PRIORIDADES,
+                                 "terrenos": TERRENOS, "maniobras": MANIOBRAS,
                                  "armas": {k: {**v, "nombre": item_factory.crear(k).nombre} for k, v in ARMAS.items()}},
                     "encuentro": self.encuentro.estado()}

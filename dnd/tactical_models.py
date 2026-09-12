@@ -7,6 +7,8 @@ from character import Personaje
 from enemies import crear_enemigo
 from combat_stats import estadisticas_combate, defensa_total
 from item_factory import item_factory
+from item import Arma
+from tactical_board import MANIOBRAS
 from character_roster import deserializar_personaje
 from progression import CLASES
 
@@ -51,6 +53,7 @@ class Seleccion:
     build: str = "ofensiva"
     arma: str = "dagas_hierro"
     prioridad: str = "agresiva"
+    maniobra: str = "ninguna"
 
 
 @dataclass
@@ -140,14 +143,17 @@ class BuildManager:
         for datos in roster or []:
             for custom in datos.get("custom", {}).values():
                 arma = item_factory.registrar_instancia(custom)
-                ARMAS.setdefault(arma.id, {"velocidad": 0, "ruptura": 0.5, "descripcion": "Arma fabricada; mismas estadísticas que Dungeon."})
+                if isinstance(arma, Arma):
+                    ARMAS.setdefault(arma.id, {"velocidad": 0, "ruptura": 0.5, "descripcion": "Arma fabricada; mismas estadísticas que Dungeon."})
         catalogo = ROSTER if roster is None else {d["id"]: d for d in roster}
         ids = {s.personaje_id for s in selecciones}
-        if len(selecciones) != 3 or len(ids) != 3 or not ids.issubset(catalogo):
-            raise ValueError("Selecciona los tres personajes, sin duplicados.")
+        if not 3 <= len(selecciones) <= 6 or len(ids) != len(selecciones) or not ids.issubset(catalogo):
+            raise ValueError("Selecciona entre 3 y 6 personajes, sin duplicados.")
         for s in selecciones:
             if s.build not in BUILDS or s.arma not in ARMAS or s.prioridad not in PRIORIDADES:
                 raise ValueError("Build, arma o prioridad no válida.")
+            if s.maniobra not in MANIOBRAS:
+                raise ValueError("Maniobra de campo no válida.")
             if roster is not None:
                 modelo = deserializar_personaje(catalogo[s.personaje_id])
                 if not modelo.inventario.cantidad(s.arma) or not item_factory.crear(s.arma).cumple_requisitos(modelo):

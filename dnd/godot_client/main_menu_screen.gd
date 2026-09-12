@@ -20,6 +20,7 @@ func _ready() -> void:
 	exit_button.pressed.connect(_on_exit_pressed)
 	tactical_button.pressed.connect(func(): OS.shell_open("http://127.0.0.1:8000/tactical.html"))
 	$WorkshopButton.pressed.connect(func(): OS.shell_open("http://127.0.0.1:8000/workshop.html"))
+	$VaultButton.pressed.connect(func(): OS.shell_open("http://127.0.0.1:8000/vault.html"))
 	$ShopButton.pressed.connect(func(): OS.shell_open("http://127.0.0.1:8000/shop.html"))
 
 

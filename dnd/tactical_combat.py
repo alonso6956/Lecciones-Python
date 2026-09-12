@@ -1,4 +1,4 @@
-"""Resolución 3v1 por rondas; reutiliza la mitigación de Dungeon (constante 22)."""
+"""Combate por rondas y tablero opcional; reutiliza las fórmulas de Dungeon."""
 
 import random
 from dataclasses import asdict
@@ -9,10 +9,11 @@ from weapon_effects import armadura_tras_penetracion, modificar_golpe, activar_a
 from tactical_ai import AIController
 from tactical_diagnostics import CombatLog, DiagnosticEngine
 from tactical_models import ARMAS, BuildManager, Encuentro
+from tactical_board import Tablero, distancia
 
 
 class CombatResolver:
-    def __init__(self, selecciones, encuentro=None, seed=1234, roster=None):
+    def __init__(self, selecciones, encuentro=None, seed=1234, roster=None, tablero=None):
         self.encuentro = encuentro or Encuentro()
         self.party = BuildManager.crear_party(selecciones, roster)
         self.jefe = self.encuentro.crear_jefe()
@@ -26,13 +27,98 @@ class CombatResolver:
         self.escudo_activado = False
         self.escudo_vence = None
         self.frames = []
+        self.tablero = Tablero(tablero, [a.id for a in self.party], self.jefe.id) if tablero is not None else None
+        self.vistas = []
+        self.maniobras_usadas = set()
         self.inicial = self.estado()
 
     def estado(self):
         return {"ronda": self.ronda, "party": [a.estado() for a in self.party],
                 "jefe": {**self.jefe.estado(), "escudo": round(self.escudo, 2),
                          "escudo_max": self.encuentro.escudo, "escudo_vence": self.escudo_vence},
-                "resultado": self.resultado}
+                "resultado": self.resultado,
+                "tablero": self.tablero.estado() if self.tablero else None}
+
+    def _vista(self, actor=None):
+        if self.tablero:
+            self.vistas.append({**self.estado(), "actor_id": actor.id if actor else None,
+                                "evento": asdict(self.log.eventos[-1]) if self.log.eventos else None})
+
+    def _vivos(self):
+        return [a for a in self.party + [self.jefe] if a.vivo]
+
+    @staticmethod
+    def _alcance(actor):
+        inventario = getattr(actor.modelo, "inventario", None)
+        return max(1, getattr(inventario.arma_equipada, "alcance", 1)) if inventario else 1
+
+    def _ruta(self, actor, objetivo, alcance):
+        ocupados = {self.tablero.posiciones[a.id] for a in self._vivos() if a is not actor}
+        return self.tablero.ruta(actor.id, self.tablero.posiciones[objetivo.id], alcance, ocupados)
+
+    def _acercar(self, actor, objetivo, alcance):
+        if not self.tablero:
+            return True
+        campo = self.tablero
+        if campo.en_alcance(campo.posiciones[actor.id], campo.posiciones[objetivo.id], alcance):
+            return True
+        if actor.estados.get("inmovilizado"):
+            self._evento("sin_alcance", actor_id=actor.id, objetivo_id=objetivo.id, fuente_tag="inmovilizado")
+            return False
+        ruta = self._ruta(actor, objetivo, alcance)
+        presupuesto = max(2, min(4, int(actor.velocidad / 4)))
+        for punto in ruta or []:
+            coste = campo.coste(punto)
+            if coste > presupuesto:
+                break
+            presupuesto -= coste
+            anterior = campo.posiciones[actor.id]
+            campo.posiciones[actor.id] = punto
+            self._evento("movimiento", actor_id=actor.id, metadata={"origen": list(anterior), "destino": list(punto), "coste": coste})
+            self._vista(actor)
+            trampa = "trampa_aliada" if actor is self.jefe else "trampa_rival"
+            if campo.terreno(punto) == trampa:
+                del campo.celdas[punto]
+                actor.estados["inmovilizado"] = {"vence": self.ronda + 1}
+                origen = self.party[0] if actor is self.jefe else self.jefe
+                self._evento("trampa_activada", actor_id=actor.id, metadata={"casilla": list(punto)})
+                self._dano(origen, actor, 12, "trampa")
+                self._vista(actor)
+                break
+        if not actor.vivo or self.resultado:
+            return False
+        llega = campo.en_alcance(campo.posiciones[actor.id], campo.posiciones[objetivo.id], alcance)
+        if not llega:
+            self._evento("sin_alcance", actor_id=actor.id, objetivo_id=objetivo.id,
+                         metadata={"motivo": "ruta_bloqueada" if ruta is None else "aproximacion"})
+        return llega
+
+    def _maniobra(self, actor):
+        if not self.tablero or actor.id in self.maniobras_usadas or actor.seleccion.maniobra == "ninguna":
+            return False
+        campo, tipo = self.tablero, actor.seleccion.maniobra
+        punto, rival = campo.posiciones[actor.id], campo.posiciones[self.jefe.id]
+        if distancia(punto, rival) > 4:
+            return False
+        if tipo == "humo":
+            for p in [punto, *campo.vecinos(punto)]:
+                campo.efectos[p] = {"tipo": "humo", "vence": self.ronda + 2}
+        elif tipo == "cobertura":
+            if campo.terreno(punto) != "suelo":
+                return False
+            campo.celdas[punto] = "cobertura"
+        else:
+            ocupados = {campo.posiciones[a.id] for a in self._vivos()}
+            candidatas = [(x, y) for x in range(10) for y in range(8)
+                          if (x, y) not in ocupados and campo.terreno((x, y)) == "suelo"
+                          and distancia(punto, (x, y)) <= 3 and campo.visible(punto, (x, y))]
+            if not candidatas:
+                return False
+            punto = min(candidatas, key=lambda p: (distancia(p, rival), distancia(p, campo.posiciones[actor.id]), p))
+            campo.celdas[punto] = "trampa_aliada"
+        self.maniobras_usadas.add(actor.id)
+        self._evento("campo_modificado", actor_id=actor.id, fuente_tag=tipo, metadata={"casilla": list(punto)})
+        return True
 
     def _evento(self, tipo, **datos):
         return self.log.registrar(self.ronda, tipo, **datos)
@@ -40,6 +126,12 @@ class CombatResolver:
     def _golpe(self, actor, objetivo, multiplicador=1):
         """Tirada, evasión, crítico y bloqueo con las estadísticas de Dungeon."""
         bruto = tirar_dano(actor.modelo, self.rng) * multiplicador
+        if self.tablero:
+            factor, razones = self.tablero.multiplicador(actor.id, objetivo.id, {a.id for a in self._vivos()})
+            bruto *= factor
+            if razones:
+                self._evento("ventaja_posicional", actor_id=actor.id, objetivo_id=objetivo.id,
+                             metadata={"factores": razones, "multiplicador": round(factor, 4)})
         datos = estadisticas_combate(objetivo.modelo)
         if self.rng.random() < datos["evasion"]:
             self._evento("esquiva", actor_id=objetivo.id, objetivo_id=actor.id)
@@ -104,6 +196,13 @@ class CombatResolver:
             return
         vivos = [a for a in self.party if a.vivo]
         objetivo = vivos[(self.ronda - 1) % len(vivos)]
+        if self.tablero:
+            def coste_objetivo(aliado):
+                ruta = self._ruta(self.jefe, aliado, 1)
+                return (sum(self.tablero.coste(p) for p in ruta) if ruta is not None else float("inf"), aliado.id)
+            objetivo = min(vivos, key=coste_objetivo)
+            if not self._acercar(self.jefe, objetivo, 1):
+                return
         self._evento("accion", actor_id=self.jefe.id, objetivo_id=objetivo.id,
                      metadata={"habilidad": "corte_sangriento"})
         dano = self._golpe(self.jefe, objetivo, 0.65 if objetivo.estados.get("muralla") else 1)
@@ -112,17 +211,23 @@ class CombatResolver:
         if self.resultado:
             return
         for aliado in self.party:
-            if aliado.vivo:
+            if aliado.vivo and (not self.tablero or self.tablero.en_alcance(
+                    self.tablero.posiciones[self.jefe.id], self.tablero.posiciones[aliado.id], 2)):
                 cargas = min(self.encuentro.sangrado_max, aliado.estados.get("sangrado", {}).get("cargas", 0) + 1)
                 aliado.estados["sangrado"] = {"cargas": cargas, "vence": self.ronda + self.encuentro.sangrado_duracion}
                 self._evento("estado_aplicado", actor_id=self.jefe.id, objetivo_id=aliado.id,
                              fuente_tag="sangrado", metadata={"cargas": cargas, "duracion": self.encuentro.sangrado_duracion})
 
     def _accion_aliado(self, actor):
+        if self._maniobra(actor):
+            return
         accion = AIController.elegir(actor, self.party, self.jefe, self.escudo, self.escudo_activado)
         objetivo = next((a for a in self.party if a.id == accion.objetivo_id), self.jefe)
         if not objetivo.vivo:
             raise RuntimeError("La IA eligió un objetivo muerto.")
+        alcance = 3 if accion.tipo in {"curar", "limpiar"} else self._alcance(actor)
+        if accion.tipo != "muralla" and not self._acercar(actor, objetivo, alcance):
+            return
         self._evento("accion", actor_id=actor.id, objetivo_id=objetivo.id,
                      metadata={"habilidad": accion.tipo, "regla": accion.regla})
         if accion.tipo == "limpiar":
@@ -138,7 +243,8 @@ class CombatResolver:
             return
         if accion.tipo == "muralla":
             for aliado in self.party:
-                if aliado.vivo:
+                if aliado.vivo and (not self.tablero or self.tablero.en_alcance(
+                        self.tablero.posiciones[actor.id], self.tablero.posiciones[aliado.id], 2)):
                     aliado.estados["muralla"] = {"vence": self.ronda + 1}
                     self._evento("estado_aplicado", actor_id=actor.id, objetivo_id=aliado.id,
                                  fuente_tag="muralla", metadata={"reduccion_directa": 0.35})
@@ -177,6 +283,7 @@ class CombatResolver:
         if self.resultado:
             raise ValueError("El combate ya terminó.")
         inicio_eventos = len(self.log.eventos)
+        self.vistas = []
         self.ronda += 1
         vivos = [a for a in self.party + [self.jefe] if a.vivo]
         iniciativas = {a.id: a.velocidad + self.rng.uniform(0, a.velocidad * 0.10) for a in vivos}
@@ -205,6 +312,7 @@ class CombatResolver:
                             break
             else:
                 self._accion_aliado(actor)
+            self._vista(actor)
         if not self.resultado and self.escudo > 0 and self.ronda >= self.escudo_vence:
             self._evento("escudo_no_roto", actor_id=self.jefe.id, fuente_tag="escudo_no_roto",
                          metadata={"escudo_restante": self.escudo})
@@ -227,6 +335,9 @@ class CombatResolver:
             self.resultado = "derrota"
             self.motivo = "limite_seguridad"
             self._evento("derrota", metadata={"motivo": self.motivo})
+        if self.tablero:
+            self.tablero.expirar(self.ronda)
+            self._vista()
         frame = {**self.estado(), "eventos": [asdict(e) for e in self.log.eventos[inicio_eventos:]]}
         self.frames.append(frame)
         return frame

@@ -28,7 +28,7 @@ class Workshop:
 
     def previsualizar(self, personaje_id, tipo, material, componente=None):
         personaje = deserializar_personaje(self.roster.obtener(personaje_id))
-        return previsualizar_arma(personaje, tipo, material, componente)
+        return previsualizar_arma(personaje, tipo, material, componente, self.roster.vault)
 
     def estado(self, personaje_id=None):
         datos = crafting_data()
@@ -37,9 +37,10 @@ class Workshop:
                 "personaje_id": personaje_id, "inventario": self._entradas(personaje.inventario) if personaje else [],
                 "crafting_tier": personaje.crafting_tier if personaje else 1,
                 "crafting_exp": personaje.crafting_exp if personaje else 0,
+                "oro": personaje.oro if personaje else 0,
                 "progreso": progreso_crafteo(personaje.crafting_exp if personaje else 0),
                 "vault": {**self.roster.vault.estado(), "items": self._entradas(self.roster.vault)},
-                "catalogo": {"tipos": {k: {"nombre": v["nombre"]} for k, v in datos["tipos"].items()},
+                "catalogo": {"tipos": {k: {"nombre": v["nombre"], "categoria": v.get("categoria", "arma")} for k, v in datos["tipos"].items()},
                              "materiales": {k: {"nombre": v["nombre"]} for k, v in datos["materiales"].items()},
                              "afijos": {k: {"nombre": v["nombre"], "efecto": v["id"]} for k, v in datos["afijos"].items()}},
                 "coste_material": (personaje.crafting_tier if personaje else 1) * datos["coste_material_por_tier"]}
@@ -79,11 +80,11 @@ class Workshop:
                 movido = origen.extraer(instance_id, cantidad)
                 destino.insertar(movido)
             elif accion == "fabricar":
-                resultado = fabricar(personaje, datos.get("tipo"), datos.get("material"), datos.get("componente"))
+                resultado = fabricar(personaje, datos.get("tipo"), datos.get("material"), datos.get("componente"), vault=vault)
             elif accion == "nombrar":
                 item_id, nombre = datos.get("item_id"), datos.get("nombre")
                 if not isinstance(item_id, str) or item_id not in personaje.inventario._custom:
-                    raise ValueError("Selecciona un arma fabricada de este personaje.")
+                    raise ValueError("Selecciona un objeto fabricado de este personaje.")
                 if not isinstance(nombre, str) or not 1 <= len(nombre.strip()) <= 60 or any(ord(c) < 32 for c in nombre):
                     raise ValueError("El nombre debe contener de 1 a 60 caracteres sin controles.")
                 nuevo = deepcopy(personaje.inventario._custom[item_id])
@@ -108,5 +109,6 @@ class Workshop:
                 raise
             estado = self.estado(personaje_id)
             estado["arma_creada"] = resultado
+            estado["objeto_creado"] = resultado
             estado["transferidos"] = transferidos
             return estado

@@ -5,7 +5,12 @@
     "espada": {"nombre": "Espada", "base": "espada_hierro", "distribucion": [55, 20, 10, 15], "alcance": 1},
     "maza": {"nombre": "Maza", "base": "maza_hierro", "distribucion": [65, 10, 5, 20], "alcance": 1},
     "daga": {"nombre": "Daga", "base": "dagas_hierro", "distribucion": [40, 35, 20, 5], "alcance": 1},
-    "lanza": {"nombre": "Lanza", "base": "espada_hierro", "distribucion": [50, 15, 10, 25], "alcance": 2}
+    "lanza": {"nombre": "Lanza", "base": "espada_hierro", "distribucion": [50, 15, 10, 25], "alcance": 2},
+    "casco": {"nombre": "Casco", "base": "casco_hierro", "categoria": "armadura"},
+    "peto": {"nombre": "Peto", "base": "peto_hierro", "categoria": "armadura"},
+    "brazales": {"nombre": "Brazales", "base": "brazales_hierro", "categoria": "armadura"},
+    "grebas": {"nombre": "Grebas", "base": "grebas_hierro", "categoria": "armadura"},
+    "escudo": {"nombre": "Escudo", "base": "escudo_hierro", "categoria": "secundario"}
   },
   "materiales": {
     "hierro": {"nombre": "Hierro", "cambios": [5, -5, 0, 0], "peso": 5, "durabilidad": 110},
@@ -27,6 +32,13 @@
     "nucleo_cristalino": {"nombre": "Núcleo cristalino", "id": "cristal", "probabilidad": 0.3, "dano": 2, "turnos": 1, "coste": 0.1}
   },
   "coste_material_por_tier": 3,
+  "protecciones": {
+    "mejora_base": 1.2,
+    "perfiles": {"equilibrado": 1, "pesado": 1.1, "rapido": 0.9, "preciso": 0.95, "perforante": 1.05},
+    "materiales": {"hierro": 1, "acero": 1.08, "bronce": 0.98, "plata": 0.95, "obsidiana": 1.04},
+    "bloqueo_maximo": 0.6,
+    "reduccion_maxima": 0.75
+  },
   "loot": {"probabilidad_material": 0.7, "cantidad_material": [1, 3], "probabilidad_componente": 0.12},
   "vault": {"capacidad": 200, "bloqueados": []}
 }

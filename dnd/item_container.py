@@ -25,6 +25,9 @@ class ItemContainer:
     def _unico(item):
         return isinstance(item, (Arma, Armadura, Secundario))
 
+    def cantidad(self, identificador):
+        return self._cantidades.get(item_factory.crear(identificador).id, 0)
+
     @property
     def slots_ocupados(self):
         return sum(cantidad if self._unico(item_factory.crear(clave)) else 1
@@ -73,7 +76,7 @@ class ItemContainer:
         item_id, cantidad = entrada["item_id"], entrada["cantidad"]
         if entrada.get("custom_data"):
             if entrada["custom_data"]["id"] != item_id or entrada["instance_id"] != item_id:
-                raise ValueError("Identidad del arma inconsistente.")
+                raise ValueError("Identidad del equipo inconsistente.")
             item_factory.registrar_instancia(entrada["custom_data"])
         if entrada["instance_id"] in self._instancias:
             raise ValueError("La instancia ya está en el destino.")
@@ -113,7 +116,7 @@ class ItemContainer:
                     "nombre": item.nombre, "categoria": type(item).__name__.lower(),
                     "cantidad": 1 if self._unico(item) else cantidad,
                     "custom_data": deepcopy(self._custom.get(item_id)),
-                    "equipado": item_id in getattr(self, "_equipamiento", {}).values(),
+                    "equipado": instance_id == ids[0] and item_id in getattr(self, "_equipamiento", {}).values(),
                     "slot": next((k for k, v in getattr(self, "_equipamiento", {}).items() if v == item_id), None)})
         return filas
 

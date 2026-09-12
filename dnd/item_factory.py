@@ -47,18 +47,43 @@ class ItemFactory:
         datos = deepcopy(datos)
         identificador = datos.get("id", "")
         if not isinstance(identificador, str) or not identificador.startswith("craft_"):
-            raise ValueError("ID de arma procedural inválido.")
+            raise ValueError("ID de equipo procedural inválido.")
         UUID(identificador[6:])
-        arma = Arma(**{**datos, "ataque": tuple(datos["ataque"]), "distribucion": tuple(datos.get("distribucion", ()))})
-        if not 1 <= arma.tier <= 5 or len(arma.ataque) != 2 or not 0 < arma.ataque[0] <= arma.ataque[1]:
-            raise ValueError("Estadísticas de arma procedural inválidas.")
-        numeros = [*arma.ataque, arma.velocidad, arma.critico, arma.penetracion, arma.peso, arma.durabilidad, *arma.distribucion]
+        arma = self._crear_instancia(datos)
+        if type(arma.tier) is not int or not 1 <= arma.tier <= 5:
+            raise ValueError("Tier procedural inválido.")
+        if type(arma.precio) is not int or arma.precio < 0:
+            raise ValueError("Valor de mercado inválido.")
+        numeros = [arma.peso, arma.durabilidad]
+        if isinstance(arma, Arma):
+            if len(arma.ataque) != 2 or any(type(v) is not int for v in arma.ataque) or not 0 < arma.ataque[0] <= arma.ataque[1]:
+                raise ValueError("Estadísticas de arma procedural inválidas.")
+            numeros += [*arma.ataque, arma.velocidad, arma.critico, arma.penetracion, *arma.distribucion]
+            if not 0 <= arma.critico <= 1 or arma.velocidad <= 0:
+                raise ValueError("Probabilidad o velocidad inválidas.")
+        elif isinstance(arma, Armadura):
+            if arma.slot not in {"casco", "pecho", "brazos", "piernas"} or type(arma.defensa) is not int or arma.defensa < 1:
+                raise ValueError("Armadura procedural inválida.")
+            numeros += [arma.defensa, *arma.bonificaciones.values()]
+        else:
+            numeros += [arma.probabilidad_bloqueo, arma.porcentaje_dano_bloqueado, *arma.bonificaciones.values()]
+            if arma.tipo_secundario != "escudo" or not 0 <= arma.probabilidad_bloqueo <= 1 or not 0 <= arma.porcentaje_dano_bloqueado <= 1:
+                raise ValueError("Escudo procedural inválido.")
         if any(type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in numeros):
-            raise ValueError("Las estadísticas del arma deben ser números finitos no negativos.")
-        if not 0 <= arma.critico <= 1 or arma.velocidad <= 0 or type(arma.tier) is not int:
-            raise ValueError("Probabilidad, velocidad o Tier inválidos.")
+            raise ValueError("Las estadísticas del equipo deben ser números finitos no negativos.")
         self._instancias[identificador] = datos
         return arma
+
+    @staticmethod
+    def _crear_instancia(datos):
+        # Las armas previas no tenían discriminador: conserva su formato.
+        if "tipo_arma" in datos:
+            return Arma(**{**datos, "ataque": tuple(datos["ataque"]), "distribucion": tuple(datos.get("distribucion", ()))})
+        if "slot" in datos:
+            return Armadura(**datos)
+        if "tipo_secundario" in datos:
+            return Secundario(**datos)
+        raise ValueError("Tipo de equipo procedural inválido.")
 
     def datos_instancia(self, identificador):
         from copy import deepcopy
@@ -74,7 +99,7 @@ class ItemFactory:
             raise ValueError("El identificador del objeto debe ser texto.")
         if identificador in self._instancias:
             datos = self._instancias[identificador]
-            return Arma(**{**datos, "ataque": tuple(datos["ataque"]), "distribucion": tuple(datos.get("distribucion", ()))})
+            return self._crear_instancia(datos)
         identificador = ALIASES_LEGACY.get(identificador, identificador)
         item_id = self._ids_por_nombre.get(identificador, identificador)
         try:

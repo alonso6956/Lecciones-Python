@@ -56,6 +56,8 @@ class Secundario(Item):
     peso: float = 0
     durabilidad: int = 100
     bonificaciones: dict = field(default_factory=dict)
+    material: str = ""
+    perfil: str = ""
 
     def cumple_requisitos(self, personaje):
         return all(
@@ -72,6 +74,9 @@ class Armadura(Item):
     peso: float = 0
     durabilidad: int = 100
     bonificaciones: dict = field(default_factory=dict)
+    tier: int = 1
+    material: str = ""
+    perfil: str = ""
 
     def cumple_requisitos(self, personaje):
         return all(

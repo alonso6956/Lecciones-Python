@@ -1,6 +1,6 @@
 // Atajo para buscar un elemento del HTML por su id.
 const elemento = (id) => document.getElementById(id);
-const UI_VERSION = "23";
+const UI_VERSION = "24";
 
 // Última copia del estado enviada por Python.
 let estado = null;
@@ -203,14 +203,19 @@ function mostrarSlots(modo, desdeMenu = false) {
   elemento("pauseActions").classList.add("hidden");
   elemento("slotPanel").classList.remove("hidden");
   elemento("pauseTitle").textContent = "Elegir personaje";
-  elemento("slotHelp").textContent = "Elige un personaje del roster. Comenzarás en la habitación 1.";
-  elemento("slotList").replaceChildren(...estado.slots.map(crearBotonSlot));
-  if (!estado.slots.length) elemento("slotHelp").textContent = "No quedan personajes. Vuelve al menú para crear uno.";
   elemento("backPauseButton").onclick = () => {
     if (desdeMenu) cerrarPausa();
     else mostrarAccionesPausa();
   };
   elemento("pauseMessage").textContent = "";
+  elemento("slotList").replaceChildren();
+  if (!Array.isArray(estado?.slots)) {
+    elemento("slotHelp").textContent = "No se pudo cargar la lista de personajes. Vuelve al menú y recarga la página.";
+    return;
+  }
+  elemento("slotHelp").textContent = "Elige un personaje del roster. Comenzarás en la habitación 1.";
+  elemento("slotList").replaceChildren(...estado.slots.map(crearBotonSlot));
+  if (!estado.slots.length) elemento("slotHelp").textContent = "No quedan personajes. Vuelve al menú para crear uno.";
 }
 
 

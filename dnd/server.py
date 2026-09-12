@@ -21,7 +21,7 @@ motor = MotorJuego(roster=roster)
 prototipo = PrototypeController(roster=roster)
 estado_lock = threading.RLock()
 servidor_activo = None
-UI_VERSION = "23"
+UI_VERSION = "24"
 
 
 def configurar_logging():
@@ -145,6 +145,14 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
             datos = self._leer_json()
             if not isinstance(datos, dict):
                 raise ErrorJuego("Se esperaba un objeto JSON.")
+            if ruta == "/api/tienda/vender":
+                if motor.fase != "menu" or prototipo.fase == "combate":
+                    raise ErrorJuego("La tienda solo está disponible desde el menú, fuera de los combates.")
+                if any(k not in {"personaje_id", "instance_id", "cantidad"} for k in datos):
+                    raise ErrorJuego("La solicitud de venta contiene campos no válidos.")
+                estado = Shop(roster).vender(datos.get("personaje_id"), datos.get("instance_id"), datos.get("cantidad", 1))
+                self._json({**estado, "disponible": True})
+                return
             if ruta in {"/api/tienda/comprar", "/api/comprar"}:
                 if motor.fase != "menu" or prototipo.fase == "combate":
                     raise ErrorJuego("La tienda solo está disponible desde el menú, fuera de los combates.")
@@ -163,6 +171,8 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
             if ruta.startswith("/api/tactico/"):
                 if ruta == "/api/tactico/preparar":
                     estado_tactico = prototipo.preparar(datos.get("selecciones"))
+                elif ruta == "/api/tactico/campo":
+                    estado_tactico = prototipo.configurar_campo(datos.get("tablero"))
                 elif ruta == "/api/tactico/iniciar":
                     estado_tactico = prototipo.iniciar(datos.get("seed", 1234))
                 elif ruta == "/api/tactico/avanzar":

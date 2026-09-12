@@ -30,6 +30,8 @@ class CombatLog:
 
 
 MENSAJES = {
+    "trampa": ("Las trampas del campo dominaron el daño recibido.",
+               "Revisa las rutas del despliegue y evita concentrar al grupo en casillas con trampas rivales."),
     "sangrado": ("El sangrado fue la principal fuente de daño de la derrota.",
                  "Mejora el daño y entrena al grupo en el calabozo para acortar el combate."),
     "escudo_no_roto": ("El castigo por no romper el escudo dominó el daño recibido.",

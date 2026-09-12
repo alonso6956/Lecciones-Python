@@ -70,8 +70,8 @@ function renderPreparation() {
       stat.append(node("strong", value));
       stats.append(stat);
     }
-    card.append(stats);
-    for (const [key, label, choices] of [["build", "Build", catalog.builds], ["arma", "Arma", catalog.armas], ["prioridad", "Prioridad de IA", catalog.prioridades]]) {
+    const details = node("details"); details.append(node("summary", "Estadísticas del personaje"), stats); card.append(details);
+    for (const [key, label, choices] of [["build", "Build", catalog.builds], ["arma", "Arma", catalog.armas], ["prioridad", "Prioridad de IA", catalog.prioridades], ["maniobra", "Maniobra de campo", catalog.maniobras]]) {
       const available = key === "arma" && data.armas ? Object.fromEntries(Object.entries(choices).filter(([id]) => data.armas.includes(id))) : choices;
       field(card, label, available, selection[key], (value) => changeSelection(index, key, value));
       card.append(node("p", choices[selection[key]].descripcion, "description"));
@@ -119,7 +119,7 @@ function renderHealth() {
     const stats = node("div", undefined, "stats");
     for (const [label, value] of statValues(actor)) stats.append(node("span", `${label}: ${value}`));
     card.append(stats);
-    const effects = Object.entries(actor.estados).map(([tag, effect]) => tag === "sangrado" ? `Sangrado ×${effect.cargas}` : tag === "vulnerable" ? "Aturdido / vulnerable" : "Muralla");
+    const effects = Object.entries(actor.estados).map(([tag, effect]) => tag === "sangrado" ? `Sangrado ×${effect.cargas}` : ({vulnerable: "Aturdido / vulnerable", inmovilizado: "Inmovilizado", muralla: "Muralla"}[tag] || tag));
     card.append(node("p", effects.join(" · ") || "Sin estados", "effects"));
     if (boss) {
       const shield = node("progress", undefined, "shield");
@@ -141,6 +141,11 @@ function eventText(event) {
   const amount = event.cantidad === null ? "" : Number(event.cantidad).toFixed(1);
   const tag = {fisico: "daño directo", sangrado: "sangrado", escudo_no_roto: "castigo de escudo"}[event.fuente_tag] || event.fuente_tag;
   switch (event.tipo) {
+    case "movimiento": return `${actor}: ${coordinate(event.metadata.origen)} → ${coordinate(event.metadata.destino)}.`;
+    case "sin_alcance": return `${actor} no alcanza a ${target}${event.fuente_tag === "inmovilizado" ? " porque está inmovilizado" : " en esta acción"}.`;
+    case "trampa_activada": return `${actor} pisa una trampa en ${coordinate(event.metadata.casilla)} y queda inmovilizado.`;
+    case "campo_modificado": return `${actor}: ${state.catalogo.maniobras[event.fuente_tag]?.nombre || event.fuente_tag} en ${coordinate(event.metadata.casilla)}.`;
+    case "ventaja_posicional": return `${actor} → ${target}: ${event.metadata.factores.join(", ")} (daño ×${event.metadata.multiplicador}).`;
     case "iniciativa": return `Orden: ${event.metadata.orden.map((id) => names[id]).join(" → ")}`;
     case "accion": return `${actor}: ${abilities[event.metadata.habilidad] || event.metadata.habilidad}${event.metadata.regla ? ` [${event.metadata.regla}]` : ""}`;
     case "dano_recibido": case "dano_infligido": return `${target} pierde ${amount} HP por ${tag}.`;
@@ -183,7 +188,7 @@ function renderLog() {
 function renderResult() {
   const result = state.resultado;
   el("resultTitle").textContent = result.resultado === "victoria" ? "El Guardián ha caído." : "Una derrota que puedes explicar.";
-  el("resultStats").textContent = `${result.rondas} rondas · ${result.supervivientes.length}/3 supervivientes · Semilla ${result.seed}`;
+  el("resultStats").textContent = `${result.rondas} rondas · ${result.supervivientes.length}/${state.selecciones.length} supervivientes · Semilla ${result.seed}`;
   const diagnosis = el("diagnostic");
   diagnosis.replaceChildren();
   if (result.diagnostico) {
@@ -199,6 +204,10 @@ function renderResult() {
 }
 
 function render() {
+  el("addHero").disabled = busy || state.fase !== "preparacion" || !state.tactico_disponible || state.selecciones.length >= Math.min(6, Object.keys(state.catalogo.personajes).length);
+  el("removeHero").disabled = busy || state.fase !== "preparacion" || state.selecciones.length <= 3;
+  el("partyCount").textContent = `${state.selecciones.length} / 6 personajes`;
+  renderBoard();
   el("start").disabled = state.tactico_disponible === false;
   el("prepFields").disabled = state.tactico_disponible === false;
   el("lockMessage").textContent = state.mensaje_bloqueo || "";
@@ -217,12 +226,14 @@ function render() {
 
 function schedule() {
   clearTimeout(timer);
-  if (state.fase === "combate") timer = setTimeout(() => mutate("avanzar", {}), Number(el("speed").value));
+  if (state.fase === "combate" && autoCombat && !playing) timer = setTimeout(() => mutate("avanzar", {}), Number(el("speed").value));
 }
 
 async function mutate(action, body) {
   if (busy) return;
   busy = true;
+  clearTimeout(timer);
+  renderBoard();
   el("prepFields").disabled = true;
   el("start").disabled = true;
   el("adjust").disabled = true;
@@ -230,7 +241,9 @@ async function mutate(action, body) {
   el("reconnect").hidden = true;
   try {
     state = await api(action, body);
+    if (action === "iniciar") autoCombat = true;
     if (["iniciar", "reajustar"].includes(action)) { displayedEvents = 0; el("log").replaceChildren(); }
+    if (action === "avanzar") await animateBoard();
     render();
     schedule();
     if (state.fase === "resultado") el("result").focus({preventScroll: true});
@@ -240,6 +253,7 @@ async function mutate(action, body) {
     el("prepFields").disabled = state?.tactico_disponible === false;
     el("start").disabled = state?.tactico_disponible === false;
     el("adjust").disabled = false;
+    render();
   }
 }
 
@@ -259,8 +273,10 @@ el("download").addEventListener("click", () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 async function load() {
+  if (busy || playing) return;
   try { state = await api("estado"); el("error").hidden = true; el("reconnect").hidden = true; displayedEvents = 0; el("log").replaceChildren(); render(); schedule(); }
   catch (error) { fail(error); }
 }
 el("reconnect").addEventListener("click", load);
+setupBoard();
 load();
