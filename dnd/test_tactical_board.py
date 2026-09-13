@@ -16,7 +16,7 @@ from character_roster import CharacterRoster
 from tactical_board import Tablero, distancia
 from tactical_combat import CombatResolver
 from tactical_controller import PrototypeController
-from tactical_models import BuildManager, Seleccion
+from tactical_models import BuildManager, Seleccion, Encuentro
 
 
 class BoardTests(unittest.TestCase):
@@ -29,12 +29,11 @@ class BoardTests(unittest.TestCase):
             p = Personaje(f"Heroe {i + 1}", "espada_basica", dict(fuerza=5, destreza=5, constitucion=5))
             self.roster.save_to_disk(p)
             self.heroes.append(p)
-        self.controller = PrototypeController(roster=self.roster)
+        self.controller = PrototypeController(encuentro=Encuentro(), roster=self.roster)
         self.controller.estado()
 
     def plan(self):
         plan = self.controller.tablero.plan()
-        plan["celdas"] = []
         return plan
 
     def battle(self, plan=None):
@@ -73,7 +72,7 @@ class BoardTests(unittest.TestCase):
         state = controller.estado()
         self.assertFalse(state["tactico_disponible"])
         self.assertEqual(state["party"], [])
-        self.assertEqual(len(state["tablero"]["posiciones"]), 1)
+        self.assertEqual(len(state["tablero"]["posiciones"]), 3)
         with self.assertRaises(ValueError):
             controller.iniciar()
 
@@ -172,7 +171,7 @@ class BoardTests(unittest.TestCase):
         for maneuver in ("humo", "cobertura", "trampa"):
             battle = CombatResolver(self.controller.selecciones, roster=self.roster.personajes, tablero=self.plan())
             actor = battle.party[0]
-            actor.seleccion = replace(actor.seleccion, maniobra=maneuver)
+            actor.habilidades_tacticas = (maneuver,)
             battle.tablero.posiciones[actor.id] = (5, 3)
             before = battle.jefe.hp
             battle._accion_aliado(actor)
@@ -191,7 +190,8 @@ class BoardTests(unittest.TestCase):
         battle.tablero.posiciones[near.id] = (4, 3)
         battle.tablero.posiciones[far.id] = (0, 0)
         battle.tablero.posiciones[other.id] = (0, 7)
-        battle._accion_jefe()
+        with patch.object(battle, "_golpe", return_value=1):
+            battle._accion_jefe()
         self.assertIn("sangrado", near.estados)
         self.assertNotIn("sangrado", far.estados)
         self.assertNotIn("sangrado", other.estados)

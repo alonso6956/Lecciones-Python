@@ -9,13 +9,15 @@ from tactical_models import ARMAS, BUILDS, PRIORIDADES, ROSTER, BuildManager, En
 from character_roster import MENSAJE_BLOQUEO
 from progression import CLASES
 from tactical_board import Tablero, TERRENOS, MANIOBRAS
+from tactical_scenarios import ESCENARIOS, crear_encuentro, crear_tablero
 
 
 class PrototypeController:
     def __init__(self, encuentro=None, roster=None):
         self.roster = roster
         self.lock = RLock()
-        self.encuentro = encuentro or Encuentro()
+        self.escenario_id = "guardian_patio" if encuentro and not encuentro.grupo else "patrulla_ruinas"
+        self.encuentro = encuentro or crear_encuentro(self.escenario_id)
         self.selecciones = preparacion_ofensiva() if roster is None else []
         self.combate = None
         self.fase = "preparacion"
@@ -43,7 +45,7 @@ class PrototypeController:
                     self.selecciones = [Seleccion(d["id"], arma=d["arma_equipada"]) for d in datos[:3]]
         ids = [s.personaje_id for s in self.selecciones]
         if self.tablero is None or self.tablero.aliados != set(ids):
-            self.tablero = Tablero.inicial(ids, self.encuentro.id)
+            self.tablero = crear_tablero(self.escenario_id, ids, self.encuentro.ids_enemigos)
 
     def preparar(self, datos):
         with self.lock:
@@ -57,6 +59,8 @@ class PrototypeController:
                 if any(not isinstance(v, str) for s in selecciones for v in asdict(s).values()):
                     raise ValueError("Las selecciones deben usar identificadores de texto.")
                 BuildManager.validar(selecciones, self._datos_roster())
+                if any(s.maniobra != "ninguna" for s in selecciones):
+                    raise ValueError("Las maniobras proceden de habilidades del personaje, no del despliegue.")
             except (TypeError, KeyError) as error:
                 raise ValueError("Selección de party no válida.") from error
             # Validación completa antes de publicar la nueva configuración.
@@ -70,8 +74,8 @@ class PrototypeController:
                 if k not in posiciones:
                     posiciones[k] = libres.pop(0) if libres else next(
                         [x, y] for y in range(8) for x in range(3) if [x, y] not in posiciones.values())
-            plan["posiciones"] = {**posiciones, self.encuentro.id: plan["posiciones"][self.encuentro.id]}
-            tablero = Tablero(plan, ids, self.encuentro.id)
+            plan["posiciones"] = {**posiciones, **{id: plan["posiciones"][id] for id in self.encuentro.ids_enemigos}}
+            tablero = Tablero(plan, ids, self.encuentro.ids_enemigos)
             self.selecciones, self.tablero = selecciones, tablero
             return self.estado()
 
@@ -81,8 +85,25 @@ class PrototypeController:
             if self.fase != "preparacion":
                 raise ValueError("El campo solo se puede editar antes de iniciar el combate.")
             self._sincronizar()
-            tablero = Tablero(datos, [s.personaje_id for s in self.selecciones], self.encuentro.id)
+            tablero = Tablero(datos, [s.personaje_id for s in self.selecciones], self.encuentro.ids_enemigos)
+            if tablero.celdas != self.tablero.celdas or any(
+                    tablero.posiciones[id] != self.tablero.posiciones[id] for id in self.encuentro.ids_enemigos):
+                raise ValueError("El terreno y el despliegue enemigo están fijados por el escenario.")
             self.tablero = tablero
+            return self.estado()
+
+    def seleccionar_escenario(self, escenario_id):
+        with self.lock:
+            if self.fase != "preparacion":
+                raise ValueError("Termina el combate y vuelve a preparación para cambiar de escenario.")
+            if not isinstance(escenario_id, str) or escenario_id not in ESCENARIOS:
+                raise ValueError("Escenario desconocido")
+            encuentro = crear_encuentro(escenario_id)
+            self._sincronizar()
+            tablero = crear_tablero(escenario_id, [s.personaje_id for s in self.selecciones], encuentro.ids_enemigos)
+            for id in tablero.aliados:
+                tablero.posiciones[id] = self.tablero.posiciones[id]
+            self.encuentro, self.tablero, self.escenario_id = encuentro, tablero, escenario_id
             return self.estado()
 
     def iniciar(self, seed=1234):
@@ -129,6 +150,7 @@ class PrototypeController:
                 # El log completo ya viaja en eventos; no duplicar todas las rondas en HTTP.
                 resultado = {k: v for k, v in resultado.items() if k not in ("frames", "eventos")}
             return {"fase": self.fase, "intentos": self.intentos,
+                    "escenario_id": self.escenario_id, "mapa": ESCENARIOS[self.escenario_id]["mapa"],
                     "tablero": self.combate.tablero.estado() if self.combate else self.tablero.estado(),
                     "reproduccion": self.combate.vistas if self.combate else [],
                     "tactico_disponible": disponible, "mensaje_bloqueo": "" if disponible else MENSAJE_BLOQUEO,
@@ -139,5 +161,6 @@ class PrototypeController:
                     "resultado": resultado,
                     "catalogo": {"personajes": personajes, "builds": BUILDS, "prioridades": PRIORIDADES,
                                  "terrenos": TERRENOS, "maniobras": MANIOBRAS,
+                                 "escenarios": {k: {f: v[f] for f in ("nombre", "mapa", "descripcion")} for k, v in ESCENARIOS.items()},
                                  "armas": {k: {**v, "nombre": item_factory.crear(k).nombre} for k, v in ARMAS.items()}},
                     "encuentro": self.encuentro.estado()}

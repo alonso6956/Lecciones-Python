@@ -82,15 +82,16 @@ async function page(name, data, script) {
   assert.equal(tactical.elements.get("start").disabled, false);
   assert.equal(tactical.elements.get("battleGrid").children.length, 80);
   assert.equal(tactical.elements.get("boardFields").disabled, false);
-  tactical.elements.get("boardTool").value = "trampa_aliada";
-  tactical.elements.get("boardTool").onchange();
-  await tactical.run('selectCell([4, 4], null)');
+  assert(!tactical.elements.has("boardTool"));
+  assert(!tactical.elements.has("clearTerrain"));
+  await tactical.run('selectCell([0, 7], null)');
   const edit = tactical.requests.find(r => r.url === "/api/tactico/campo");
-  assert(edit.body.tablero.celdas.some(c => c.x === 4 && c.y === 4 && c.tipo === "trampa_aliada"));
+  assert.deepEqual(edit.body.tablero.posiciones[fixture.tactical.party[0].id], [0, 7]);
+  assert.deepEqual(edit.body.tablero.celdas, fixture.tactical.tablero.celdas);
   const six = await page("tactical", fixture.tacticalSix, "tactical");
   assert.equal(six.elements.get("party").children.length, 6);
   assert.equal(six.elements.get("addHero").disabled, true);
-  assert.equal(six.elements.get("boardUnit").options.length, 7);
+  assert.equal(six.elements.get("boardUnit").options.length, 6);
   const fight = await page("tactical", fixture.tacticalFrame, "tactical");
   assert.equal(fight.elements.get("boardFields").disabled, true);
   assert.equal(fight.elements.get("nextRound").disabled, false);
@@ -142,5 +143,5 @@ async function page(name, data, script) {
     const empty = await page(name, fixture.empty, "workshop");
     assert(empty.elements.get("message").textContent.includes("Crea un personaje"));
   }
-  console.log("Page scripts OK: menus, forge, vault, shop, six-unit deployment, terrain editing and combat playback.");
+  console.log("Page scripts OK: menus, forge, vault, shop, six-unit deployment, fixed maps and combat playback.");
 })().catch(error => {console.error(error); process.exitCode = 1;});

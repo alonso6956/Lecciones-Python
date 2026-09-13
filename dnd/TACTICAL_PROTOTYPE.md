@@ -46,13 +46,14 @@ restablece la preparación. El servidor calcula una ronda por solicitud
 
 ### Despliegue y campo de batalla
 
-El tablero tiene **10 columnas (A–J) y 8 filas (1–8)**. Admite hasta seis aliados y al guardián. Este encuentro conserva un solo rival y sus estadísticas; añadir aliados reduce la dificultad, sin escalar automáticamente la vida del jefe.
+El tablero tiene **10 columnas (A–J) y 8 filas (1–8)** y se representa en vista cenital ortogonal. Admite de tres a seis aliados frente a un jefe o una patrulla de tres enemigos.
 
-1. Usa **Añadir personaje** o **Quitar último personaje** para ajustar el grupo entre 3 y 6. Selecciona sus armas y una maniobra de campo por personaje.
-2. En el tablero, elige una ficha o un personaje en el selector y pulsa una casilla libre. Los aliados se despliegan en A–C y el guardián en H–J. Las flechas permiten recorrer el tablero con teclado.
-3. Selecciona una herramienta para pintar el terreno. **Suelo / borrar** elimina el terreno de una casilla; **Limpiar terreno** conserva el despliegue y elimina todas las modificaciones. Se rechazan posiciones duplicadas, casillas fuera del tablero y campos que corten todas las rutas al guardián.
-4. Inicia el combate. Las fichas muestran número de personaje, nombre y vida, y resaltan cada actor durante su acción. Puedes inspeccionar las casillas, pausar entre rondas o avanzar una ronda. El ritmo controla la reproducción y el intervalo entre rondas.
-5. **Reajustar** recupera el despliegue y terreno originales, la vida completa y las maniobras disponibles. El terreno se conserva entre reintentos y recargas de página mientras el servidor siga abierto; no se guarda en disco.
+1. El selector **Escenario de prueba** ofrece Patrulla · Ruinas, Patrulla · Sendero y Guardián · Patio. Cada escenario fija mapa y enemigos; no existe editor de bioma ni terreno.
+2. Selecciona personajes, armas y prioridades de IA. Solo puedes desplazar aliados en A–C; las posiciones enemigas son fijas. La API también rechaza cambios de terreno o enemigos.
+3. Inicia el combate. Puedes inspeccionar unidades, pausar entre rondas o avanzar una ronda. La victoria requiere derrotar a todos los rivales.
+4. **Reajustar** conserva tu formación y escenario, y reinicia vida, estados y memoria de IA. El escenario se mantiene al recargar la página mientras siga abierto el servidor.
+
+Los límites siguientes pertenecen a la validación interna del tablero, no a herramientas de edición del jugador. Ningún mapa preestablecido contiene trampas.
 
 | Terreno | Efecto | Límite inicial |
 | --- | --- | --- |
@@ -65,20 +66,20 @@ El tablero tiene **10 columnas (A–J) y 8 filas (1–8)**. Admite hasta seis al
 
 El movimiento es ortogonal, con **2–4 puntos por acción** según `velocidad / 4`, truncada y acotada. El motor busca una ruta de menor coste evitando unidades vivas y obstáculos. Los caídos dejan de bloquear el paso. Tras moverse se puede atacar si el objetivo queda al alcance del arma y con línea de visión; de lo contrario, la acción se dedica a aproximarse. Una trampa impide seguir moviéndose hasta terminar la siguiente ronda, pero no impide atacar a un objetivo que ya esté al alcance.
 
-La lanza fabricada puede atacar desde dos casillas; el resto conserva el alcance definido en su objeto. El guardián busca al aliado accesible más cercano por coste de ruta. El sangrado de su ataque afecta solo a aliados a distancia 2 y con visión. El castigo por fallar la ruptura de escudo sigue siendo global. Las futuras curaciones/limpiezas tienen alcance 3 y Muralla afecta a aliados a distancia 2.
+La lanza fabricada puede atacar desde dos casillas; el resto conserva el alcance definido en su objeto. El guardián busca al aliado accesible más cercano por coste de ruta. El sangrado de su ataque se aplica solo cuando el golpe causa daño y afecta a aliados a distancia 2 y con visión. Un golpe esquivado no aplica ni renueva sangrado; los ticks ya existentes siguen su duración. El castigo por fallar la ruptura de escudo sigue siendo global. Las futuras curaciones/limpiezas tienen alcance 3 y Muralla afecta a aliados a distancia 2.
 
-Dos aliados adyacentes en lados opuestos del guardián obtienen **+15 % de daño por flanqueo**. Altura, cobertura, humo y flanqueo se aplican multiplicativamente al daño directo antes de la mitigación normal. No alteran los ticks de sangrado ni el daño fijo de trampas.
+Dos unidades del mismo equipo adyacentes en lados opuestos del objetivo obtienen **+15 % de daño por flanqueo**. Altura, cobertura, humo y flanqueo se aplican multiplicativamente al daño directo antes de la mitigación normal. No alteran los ticks de sangrado ni el daño fijo de trampas.
 
 ### Maniobras de campo
 
-Cada personaje puede elegir una maniobra independiente de los árboles de clase. La IA la usa **una vez por combate**, cuando el guardián está a cuatro casillas o menos; consume su acción de ese turno. Si no hay una casilla válida, continúa con su acción normal y podrá intentarlo después.
+No hay selector manual de maniobras. La IA solo puede utilizar una habilidad de campo presente en `Actor.habilidades_tacticas` (pendiente de conectar a los futuros árboles de clase). La usa **una vez por combate** cuando un enemigo accesible está a cuatro casillas o menos, y consume la acción. Si no hay una casilla válida, puede intentarlo después.
 
 - **Cortina de humo:** genera humo en la casilla del actor y sus vecinas transitables. Reduce el daño directo recibido un 25 %, para ambos bandos, hasta el final de la ronda actual + 2.
 - **Fortificar posición:** convierte el suelo de su casilla en cobertura durante el resto del combate. No reemplaza otros terrenos.
-- **Tender trampa:** crea una trampa aliada en suelo libre y visible a distancia máxima 3 del actor, priorizando la cercanía al guardián. Las trampas no desaparecen al morir quien las colocó.
+- **Tender trampa:** crea una trampa aliada en suelo libre y visible a distancia máxima 3 del actor, priorizando la cercanía al enemigo accesible más próximo. Las trampas no desaparecen al morir quien las colocó.
 - **Sin maniobra:** no reserva acciones para modificar el campo.
 
-Las maniobras no gastan consumibles ni oro del personaje y no entregan recompensas. Son recursos limitados del intento táctico. Sus cambios de terreno pueden superar los límites del editor inicial.
+Las maniobras no gastan consumibles ni oro del personaje y no entregan recompensas. Son recursos limitados del intento táctico. El jugador no puede crear estos efectos durante el despliegue.
 
 ## Ejecutar
 
@@ -154,7 +155,7 @@ Las pruebas incluyen creación, migración, checksum/respaldo, fallo de escritur
 checkpoint de habitación, muerte/abandono, hitos 10/30, habilidades independientes
 del equipo, party del roster y ciclos completos por HTTP con archivos temporales.
 
-`test_tactical_board.py` cubre grupos de seis, validación de posiciones, límites de terreno, rutas, alcance/visión, trampas, flanqueo, maniobras, determinismo, reintentos y API. `test_workshop_pages.cjs` también comprueba el editor y la reproducción con datos reales del motor, sin navegador; no verifica visualmente el diseño.
+`test_tactical_board.py` cubre grupos de seis, validación de posiciones, límites de terreno, rutas, alcance/visión, trampas, flanqueo, maniobras, determinismo, reintentos y API. `test_workshop_pages.cjs` también comprueba el despliegue y la reproducción con datos reales del motor, sin navegador; no verifica visualmente el diseño.
 
 `simulate_tactical.py` conserva personajes de laboratorio (Aria, Bruno y Cora)
 para comparar las fórmulas y diagnósticos sin partidas locales. Estos fixtures
@@ -169,3 +170,9 @@ El diagnóstico suma únicamente HP efectivamente perdido: ticks informativos y
 muertes no duplican daño. Una fuente que alcanza el 40% determina la causa;
 si ninguna lo alcanza se informa desgaste general. El límite de 80 rondas
 previene combates infinitos.
+
+### Escenarios y verificación adicional
+
+`tactical_scenarios.py` define los tres mapas. La patrulla usa Goblin Rogue, Esqueleto Guerrero y Bandido Bárbaro de `enemies.py`, con memoria de IA individual. No recibe mecánicas de jefe. Los estados incluyen `enemigos[]`; `jefe` es `null` en encuentros comunes. La UI de Godot abre esta misma página táctica.
+
+`test_tactical_scenarios.py` cubre victoria grupal, retarget tras muerte, ocupación, mapas fijos, habilidades de trampas, determinismo y sangrado condicionado al impacto. `test_tactical_ui.js` comprueba el render DOM de los tres escenarios en preparación, combate y resultado; no sustituye una revisión visual en navegador.

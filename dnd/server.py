@@ -171,6 +171,8 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
             if ruta.startswith("/api/tactico/"):
                 if ruta == "/api/tactico/preparar":
                     estado_tactico = prototipo.preparar(datos.get("selecciones"))
+                elif ruta == "/api/tactico/escenario":
+                    estado_tactico = prototipo.seleccionar_escenario(datos.get("escenario_id"))
                 elif ruta == "/api/tactico/campo":
                     estado_tactico = prototipo.configurar_campo(datos.get("tablero"))
                 elif ruta == "/api/tactico/iniciar":

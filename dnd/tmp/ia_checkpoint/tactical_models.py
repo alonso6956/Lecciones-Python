@@ -11,7 +11,6 @@ from item import Arma
 from tactical_board import MANIOBRAS
 from character_roster import deserializar_personaje
 from progression import CLASES
-from enemy_ai import PerfilIA
 
 
 ROSTER = {
@@ -70,8 +69,6 @@ class Actor:
     cooldowns: dict = field(default_factory=dict)
     habilidades_tacticas: tuple = ()
     unica: str = None
-    roles_ia: tuple = ()
-    linea_ia: str = "frontal"
 
     @property
     def ataque(self):
@@ -124,24 +121,8 @@ class Encuentro:
     sangrado_max: int = 4
     castigo: float = 155
     limite_rondas: int = 80
-    perfil_ia: PerfilIA | None = None
-    grupo: bool = False
-
-    @property
-    def ids_enemigos(self):
-        return ["goblin_explorador", "esqueleto_guardia", "bandido_bruto"] if self.grupo else [self.id]
-
-    def crear_enemigos(self):
-        if not self.grupo:
-            return [self.crear_jefe()]
-        return [Actor(id, crear_enemigo(raza, tipo), tipo) for id, raza, tipo in zip(
-            self.ids_enemigos, ("Goblin", "Esqueleto", "Bandido"), ("Rogue", "Guerrero", "Bárbaro"))]
 
     def __post_init__(self):
-        if isinstance(self.perfil_ia, dict):
-            object.__setattr__(self, "perfil_ia", PerfilIA(**self.perfil_ia))
-        if self.perfil_ia is not None and not isinstance(self.perfil_ia, PerfilIA):
-            raise ValueError("Perfil de IA inválido")
         if min(self.escudo, self.ventana_rondas, self.sangrado_duracion,
                self.sangrado_max, self.limite_rondas) <= 0:
             raise ValueError("Vida, escudo, duraciones y límite deben ser positivos.")
@@ -153,11 +134,7 @@ class Encuentro:
 
     def estado(self):
         from dataclasses import asdict
-        if self.grupo:
-            return {**asdict(self), "nombre": "Patrulla hostil", "es_jefe": False,
-                    "enemigos": [a.estado() for a in self.crear_enemigos()]}
-        return {**asdict(self), **self.crear_jefe().estado(), "es_jefe": True,
-                "enemigos": [self.crear_jefe().estado()]}
+        return {**asdict(self), **self.crear_jefe().estado()}
 
 
 class BuildManager:

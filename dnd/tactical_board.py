@@ -29,17 +29,18 @@ class Tablero:
     def __init__(self, datos, aliados, jefe_id):
         self.aliados = set(aliados)
         self.jefe_id = jefe_id
+        self.enemigos = {jefe_id} if isinstance(jefe_id, str) else set(jefe_id)
         if not isinstance(datos, dict) or set(datos) != {"posiciones", "celdas"}:
             raise ValueError("El tablero debe contener posiciones y celdas.")
         posiciones = datos["posiciones"]
-        if not isinstance(posiciones, dict) or set(posiciones) != self.aliados | {jefe_id}:
+        if not isinstance(posiciones, dict) or set(posiciones) != self.aliados | self.enemigos:
             raise ValueError("Coloca a todos los personajes elegidos y al guardián.")
         self.posiciones = {k: self.coordenada(v) for k, v in posiciones.items()}
         if len(set(self.posiciones.values())) != len(self.posiciones):
             raise ValueError("Dos personajes no pueden ocupar la misma casilla.")
         if any(p[0] > 2 for k, p in self.posiciones.items() if k in self.aliados):
             raise ValueError("Despliega a tus personajes en las columnas A–C.")
-        if self.posiciones[jefe_id][0] < 7:
+        if any(self.posiciones[id][0] < 7 for id in self.enemigos):
             raise ValueError("Despliega al guardián en las columnas H–J.")
         self.celdas = {}
         self.efectos = {}
@@ -65,7 +66,7 @@ class Tablero:
             raise ValueError("No puedes desplegar sobre un obstáculo.")
         # Comprueba conectividad sin unidades: evita arenas cerradas al editar.
         for aliado in self.aliados:
-            if self.ruta(aliado, self.posiciones[jefe_id], 1, set()) is None:
+            if any(self.ruta(aliado, self.posiciones[id], 1, set()) is None for id in self.enemigos):
                 raise ValueError("El terreno debe dejar una ruta al guardián para cada personaje.")
 
     @staticmethod
@@ -161,9 +162,10 @@ class Tablero:
         if self.efectos.get(destino, {}).get("tipo") == "humo":
             factor *= .75
             razones.append("humo")
-        if actor_id in self.aliados and distancia(origen, destino) == 1:
+        equipo = self.aliados if actor_id in self.aliados else self.enemigos
+        if distancia(origen, destino) == 1:
             opuesta = (2 * destino[0] - origen[0], 2 * destino[1] - origen[1])
-            if any(k != actor_id and k in vivos and self.posiciones[k] == opuesta for k in self.aliados):
+            if any(k != actor_id and k in vivos and self.posiciones[k] == opuesta for k in equipo):
                 factor *= 1.15
                 razones.append("flanqueo")
         return factor, razones

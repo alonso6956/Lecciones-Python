@@ -71,7 +71,7 @@ function renderPreparation() {
       stats.append(stat);
     }
     const details = node("details"); details.append(node("summary", "Estadísticas del personaje"), stats); card.append(details);
-    for (const [key, label, choices] of [["build", "Build", catalog.builds], ["arma", "Arma", catalog.armas], ["prioridad", "Prioridad de IA", catalog.prioridades], ["maniobra", "Maniobra de campo", catalog.maniobras]]) {
+    for (const [key, label, choices] of [["build", "Build", catalog.builds], ["arma", "Arma", catalog.armas], ["prioridad", "Prioridad de IA", catalog.prioridades]]) {
       const available = key === "arma" && data.armas ? Object.fromEntries(Object.entries(choices).filter(([id]) => data.armas.includes(id))) : choices;
       field(card, label, available, selection[key], (value) => changeSelection(index, key, value));
       card.append(node("p", choices[selection[key]].descripcion, "description"));
@@ -106,9 +106,10 @@ function renderHealth() {
   const combat = state.combate;
   el("round").textContent = `Ronda ${combat.ronda} · Intento ${state.intentos}`;
   el("health").replaceChildren();
-  for (const actor of [...combat.party, combat.jefe]) {
-    const boss = actor.id === combat.jefe.id;
-    const card = node("article", undefined, `health-card${boss ? " boss" : ""}${actor.hp <= 0 ? " dead" : ""}`);
+  for (const actor of [...combat.party, ...combat.enemigos.map(a => a.id === combat.jefe?.id ? combat.jefe : a)]) {
+    const boss = actor.id === combat.jefe?.id;
+    const enemy = combat.enemigos.some(a => a.id === actor.id);
+    const card = node("article", undefined, `health-card${enemy ? " boss" : ""}${actor.hp <= 0 ? " dead" : ""}`);
     card.append(node("h3", actor.nombre));
     card.append(node("p", `${actor.hp.toFixed(1)} / ${actor.hp_max} HP${actor.hp <= 0 ? " · Caído" : ""}`));
     const hp = node("progress");
@@ -135,12 +136,13 @@ function renderHealth() {
 
 const abilities = {ataque: "Ataque básico", limpiar: "Limpiar sangrado", curar: "Curar", romper: "Romper escudo", golpe_preciso: "Golpe preciso", golpe_demoledor: "Golpe demoledor", muralla: "Muralla", corte_sangriento: "Corte sangriento"};
 function eventText(event) {
-  const names = {...Object.fromEntries(Object.entries(state.catalogo.personajes).map(([id, data]) => [id, data.nombre])), [state.encuentro.id]: state.encuentro.nombre};
+  const names = {...Object.fromEntries(Object.entries(state.catalogo.personajes).map(([id, data]) => [id, data.nombre])), ...Object.fromEntries(state.encuentro.enemigos.map(a => [a.id, a.nombre]))};
   const actor = names[event.actor_id] || "";
   const target = names[event.objetivo_id] || "";
   const amount = event.cantidad === null ? "" : Number(event.cantidad).toFixed(1);
   const tag = {fisico: "daño directo", sangrado: "sangrado", escudo_no_roto: "castigo de escudo"}[event.fuente_tag] || event.fuente_tag;
   switch (event.tipo) {
+    case "decision_ia": return `${actor}: ${event.metadata.motivo}${target ? ` → ${target}` : ""}.`;
     case "movimiento": return `${actor}: ${coordinate(event.metadata.origen)} → ${coordinate(event.metadata.destino)}.`;
     case "sin_alcance": return `${actor} no alcanza a ${target}${event.fuente_tag === "inmovilizado" ? " porque está inmovilizado" : " en esta acción"}.`;
     case "trampa_activada": return `${actor} pisa una trampa en ${coordinate(event.metadata.casilla)} y queda inmovilizado.`;
@@ -164,7 +166,7 @@ function eventText(event) {
     case "critico": return `${actor} consigue un golpe crítico.`;
     case "esquiva": return `${actor} esquiva el ataque de ${target}.`;
     case "bloqueo": return `${actor} bloquea parte del ataque de ${target}.`;
-    case "victoria": return "Victoria: el Guardián ha caído.";
+    case "victoria": return "Victoria: todos los enemigos han caído.";
     case "derrota": return event.metadata.motivo === "limite_seguridad" ? "Fin por límite de seguridad." : "Derrota: ha caído toda la party.";
     default: return event.tipo;
   }
@@ -187,7 +189,7 @@ function renderLog() {
 
 function renderResult() {
   const result = state.resultado;
-  el("resultTitle").textContent = result.resultado === "victoria" ? "El Guardián ha caído." : "Una derrota que puedes explicar.";
+  el("resultTitle").textContent = result.resultado === "victoria" ? "Todos los enemigos han caído." : "Una derrota que puedes explicar.";
   el("resultStats").textContent = `${result.rondas} rondas · ${result.supervivientes.length}/${state.selecciones.length} supervivientes · Semilla ${result.seed}`;
   const diagnosis = el("diagnostic");
   diagnosis.replaceChildren();
@@ -217,7 +219,8 @@ function render() {
   el("logSection").hidden = !state.combate;
   el("attempts").textContent = `Intentos: ${state.intentos}`;
   el("bossTitle").textContent = state.encuentro.nombre;
-  el("bossStats").textContent = `${state.encuentro.nombre} · ${statValues(state.encuentro).map(([label, value]) => `${label}: ${value}`).join(" · ")} · Escudo de encuentro: ${state.encuentro.escudo}`;
+  el("bossStats").textContent = state.encuentro.enemigos.map(a => `${a.nombre} · ${a.hp_max} vida · ${a.ataque} ataque`).join(" / ");
+  el("encounterRules").textContent = state.catalogo.escenarios[state.escenario_id].descripcion;
   for (const [id, phase] of [["stepPrep", "preparacion"], ["stepFight", "combate"], ["stepResult", "resultado"]]) el(id).classList.toggle("active", state.fase === phase);
   if (state.fase === "preparacion") renderPreparation();
   if (state.combate) { renderHealth(); renderLog(); }

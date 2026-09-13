@@ -16,7 +16,7 @@
     <a href="/">← Dungeon / Menú</a><span>DESAFÍO TÁCTICO · HASTA 6 ALIADOS</span>
   </header>
   <section class="intro">
-    <p class="eyebrow">EL GUARDIÁN</p>
+    <p class="eyebrow">OPERACIONES TÁCTICAS</p>
     <h1>La victoria empieza antes del combate.</h1>
     <p>Prepara tu grupo, observa el combate automático y usa el diagnóstico para ajustar el siguiente intento.</p>
     <ol class="steps" aria-label="Ciclo del desafío"><li id="stepPrep">01 · Preparación</li><li id="stepFight">02 · Combate</li><li id="stepResult">03 · Diagnóstico y reajuste</li></ol>
@@ -25,26 +25,24 @@
   <button id="reconnect" hidden>Reanudar conexión</button>
   <section class="encounter" aria-labelledby="bossTitle">
     <div><p class="eyebrow">ENCUENTRO DE PRUEBA</p><h2 id="bossTitle">Guardián</h2><p id="bossStats"></p></div>
-    <p><strong>Sangrado de proximidad</strong><br>El jefe debe acercarse para atacar. Tras su ataque, aplica sangrado a los aliados a 2 casillas con línea de visión. Separa al grupo para evitarlo.</p>
-    <p><strong>Escudo al 50% de vida</strong><br>Rómpelo en las siguientes dos rondas completas. Fallar provoca un ataque de castigo contra toda la party.</p>
+    <p id="encounterRules"></p>
   </section>
   <section class="battlefield" aria-labelledby="boardTitle">
     <div class="section-title"><div><p class="eyebrow">CAMPO DE BATALLA · 10 × 8</p><h2 id="boardTitle">Despliegue y terreno</h2></div><span id="boardRound" role="status"></span></div>
-    <fieldset id="boardFields"><legend>Preparar el campo</legend><div class="board-toolbar">
+    <fieldset id="boardFields"><legend>Formación del grupo</legend><div class="board-toolbar">
       <label>Personaje <select id="boardUnit"></select></label>
-      <label>Herramienta <select id="boardTool"></select></label>
-      <button id="clearTerrain" type="button">Limpiar terreno</button>
+      <label>Escenario de prueba <select id="scenario"></select></label>
     </div><p id="toolHelp" class="muted"></p></fieldset>
     <div class="board-layout"><div class="board-scroll"><div id="battleGrid" class="battle-grid" role="group" aria-label="Tablero táctico. Usa las flechas para recorrer las casillas."></div></div>
       <aside class="board-inspector"><div id="cellDetails"><h3>Inspecciona una casilla</h3><p>Selecciona una ficha y después su casilla de despliegue. Durante el combate puedes consultar cualquier casilla.</p></div>
-        <details><summary>Reglas del campo</summary><p>Movimiento ortogonal: 2–4 puntos por turno según velocidad. Moverse permite atacar si se llega al alcance. Los obstáculos bloquean visión y paso.</p><p>Altura: ±15 % de daño. Cobertura: −20 % de daño recibido. Humo: −25 %. Flanquear al guardián desde dos lados opuestos adyacentes: +15 %.</p><p>Las trampas infligen 12 de daño, se consumen y detienen el movimiento hasta terminar la siguiente ronda. Cada personaje puede usar su maniobra una vez por combate, en lugar de atacar.</p><p>El castigo por no romper el escudo sigue afectando a todo el grupo. Preparar el campo no consume objetos ni modifica tus partidas.</p></details>
+        <details><summary>Reglas del campo</summary><p>Movimiento ortogonal: 2–4 puntos por turno según velocidad. Moverse permite atacar si se llega al alcance. Los obstáculos bloquean visión y paso.</p><p>Altura: ±15 % de daño. Cobertura: −20 % de daño recibido. Humo: −25 %. Flanquear a un enemigo desde dos lados opuestos adyacentes: +15 %.</p><p>El terreno y los enemigos vienen definidos por el encuentro. Las habilidades de campo, incluidas las trampas, solo las puede ejecutar la IA si el personaje las posee.</p></details>
       </aside></div>
     <p id="boardEvent" role="status" class="board-event"></p><p id="terrainBudget" class="muted"></p>
     <div class="playback-controls"><button id="pauseCombat" type="button" disabled>Pausar</button><button id="nextRound" type="button" disabled>Avanzar una ronda</button><span class="muted">La pausa se aplica al terminar la ronda que se está mostrando.</span></div>
   </section>
   <section id="preparation" aria-labelledby="prepTitle">
     <div class="section-title"><div><p class="eyebrow">PERSONAJES DEL CALABOZO</p><h2 id="prepTitle">Prepara de 3 a 6 personajes</h2></div><span id="attempts"></span></div>
-    <p class="muted">Elige los personajes, sus armas y una maniobra de campo por personaje. Se usa el progreso del último guardado. Añadir aliados facilita este encuentro; el guardián conserva sus estadísticas.</p>
+    <p class="muted">Elige los personajes, sus armas y prioridades de IA. Se usa el progreso del último guardado. Ajusta sus posiciones en la zona azul; el escenario fija el mapa y los rivales.</p>
     <div class="party-controls"><button id="addHero" type="button">Añadir personaje</button><button id="removeHero" type="button">Quitar último personaje</button><span id="partyCount"></span></div>
     <p id="lockMessage" role="status"></p>
       <fieldset id="prepFields"><legend class="sr-only">Configuración del grupo</legend><div id="party" class="party-grid"></div></fieldset>

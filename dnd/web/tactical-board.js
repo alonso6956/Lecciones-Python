@@ -1,5 +1,5 @@
 "use strict";
-let boardUnit = "", boardTool = "posicionar", inspectedCell = null;
+let boardUnit = "", inspectedCell = null;
 let playback = null, playing = false, autoCombat = true;
 const terrainMarks = {suelo: "", muro: "▦", cobertura: "▰", altura: "▲", barro: "≈", trampa_aliada: "✦", trampa_rival: "✕"};
 const coordinate = p => `${String.fromCharCode(65 + p[0])}${p[1] + 1}`;
@@ -8,24 +8,26 @@ function renderBoard() {
   if (!state?.tablero) return;
   const board = playback?.tablero || state.tablero;
   const combat = playback || state.combate;
-  const actors = combat ? [...combat.party, combat.jefe] : [...state.party, state.encuentro];
+  const enemies = combat ? combat.enemigos : state.encuentro.enemigos;
+  const actors = combat ? [...combat.party, ...enemies] : [...state.party, ...enemies];
   const visibleActors = [...actors].sort((a, b) => Number(b.hp > 0) - Number(a.hp > 0));
   const editable = state.fase === "preparacion" && state.tactico_disponible !== false && !busy;
   el("boardFields").disabled = !editable;
   el("boardRound").textContent = combat ? `Ronda ${combat.ronda} · ${playing ? "Reproduciendo acciones" : state.fase === "resultado" ? "Combate terminado" : "Combate en curso"}` : `${state.selecciones.length}/6 personajes · Despliegue`;
   const units = el("boardUnit"); units.replaceChildren();
-  for (const actor of actors) {
+  for (const actor of state.party) {
     const option = node("option", actor.nombre); option.value = actor.id; units.append(option);
   }
-  if (!actors.some(a => a.id === boardUnit)) boardUnit = actors[0]?.id || "";
+  if (!state.party.some(a => a.id === boardUnit)) boardUnit = state.party[0]?.id || "";
   units.value = boardUnit;
-  const tools = el("boardTool"); tools.replaceChildren();
-  const move = node("option", "Posicionar personaje"); move.value = "posicionar"; tools.append(move);
-  for (const [id, terrain] of Object.entries(state.catalogo.terrenos)) {
-    const option = node("option", `${terrain.nombre}${id === "suelo" ? " / borrar" : ""}`); option.value = id; tools.append(option);
+  el("toolHelp").textContent = "Selecciona un aliado y después una casilla libre en A–C. El terreno y los enemigos están fijados por el escenario.";
+  el("boardTitle").textContent = `${state.mapa} · Vista cenital`;
+  const scenarios = el("scenario"); scenarios.replaceChildren();
+  for (const [id, data] of Object.entries(state.catalogo.escenarios)) {
+    const option = node("option", data.nombre); option.value = id; scenarios.append(option);
   }
-  tools.value = boardTool;
-  el("toolHelp").textContent = boardTool === "posicionar" ? "Selecciona una ficha o elige un personaje y después una casilla. Aliados: A–C. Guardián: H–J." : state.catalogo.terrenos[boardTool].descripcion;
+  scenarios.value = state.escenario_id;
+  scenarios.disabled = !editable;
   const focused = document.activeElement?.dataset?.cell;
   const grid = el("battleGrid"); grid.replaceChildren();
   grid.style.setProperty("--columns", board.ancho);
@@ -43,9 +45,9 @@ function renderBoard() {
       tile.title = tile.getAttribute("aria-label");
       tile.append(node("span", label, "cell-coordinate"), node("span", terrainMarks[terrain], "terrain-mark"));
       if (actor) {
-        const boss = actor.id === state.encuentro.id;
+        const boss = enemies.some(e => e.id === actor.id);
         const index = state.selecciones.findIndex(s => s.personaje_id === actor.id);
-        const token = node("span", actor.hp <= 0 ? "†" : boss ? "G" : String(index + 1), `unit-token ${boss ? "enemy-token" : "ally-token"}${actor.hp <= 0 ? " fallen" : ""}`);
+        const token = node("span", actor.hp <= 0 ? "†" : boss ? String(enemies.findIndex(e => e.id === actor.id) + 1) : String(index + 1), `unit-token ${boss ? "enemy-token" : "ally-token"}${actor.hp <= 0 ? " fallen" : ""}`);
         tile.append(token, node("span", actor.nombre, "unit-name"));
         const bar = node("span", undefined, "unit-hp"), fill = node("i");
         fill.style.width = `${Math.max(0, actor.hp / actor.hp_max * 100)}%`; bar.append(fill); tile.append(bar);
@@ -59,11 +61,10 @@ function renderBoard() {
     }
   }
   if (focused) [...grid.children].find(tile => tile.dataset.cell === focused)?.focus();
-  const counts = Object.entries(state.catalogo.terrenos).filter(([id]) => id !== "suelo").map(([id, t]) => `${t.nombre}: ${board.celdas.filter(c => c.tipo === id).length}/${t.limite}`);
-  el("terrainBudget").textContent = state.fase === "preparacion" ? counts.join(" · ") : "Las maniobras pueden añadir terreno durante el combate.";
+  el("terrainBudget").textContent = "Azul: tu grupo · Rojo: enemigos · El mapa pertenece al encuentro.";
   if (inspectedCell) describeCell(board, visibleActors, inspectedCell);
   if (playback?.evento) el("boardEvent").textContent = eventText(playback.evento);
-  else if (!playing) el("boardEvent").textContent = state.fase === "preparacion" ? "Configura el campo; los cambios se aplican al próximo intento." : "Pulsa una casilla para inspeccionar el terreno y la unidad.";
+  else if (!playing) el("boardEvent").textContent = state.fase === "preparacion" ? "Prepara la formación y la estrategia del grupo." : "Pulsa una casilla para inspeccionar el terreno y la unidad.";
   el("pauseCombat").textContent = autoCombat ? "Pausar" : "Continuar";
   el("pauseCombat").disabled = state.fase !== "combate" && !playing;
   el("nextRound").disabled = busy || playing || state.fase !== "combate";
@@ -82,13 +83,13 @@ function describeCell(board, actors, point) {
 async function selectCell(point, actor) {
   inspectedCell = point;
   if (busy || playing || state.fase !== "preparacion" || !state.tactico_disponible) {renderBoard(); return;}
-  if (boardTool === "posicionar" && actor) {boardUnit = actor.id; renderBoard(); return;}
-  const plan = {posiciones: structuredClone(state.tablero.posiciones), celdas: structuredClone(state.tablero.celdas)};
-  if (boardTool === "posicionar") plan.posiciones[boardUnit] = point;
-  else {
-    plan.celdas = plan.celdas.filter(c => c.x !== point[0] || c.y !== point[1]);
-    if (boardTool !== "suelo") plan.celdas.push({x: point[0], y: point[1], tipo: boardTool});
+  if (actor) {
+    if (state.party.some(a => a.id === actor.id)) boardUnit = actor.id;
+    renderBoard(); return;
   }
+  if (!boardUnit) return;
+  const plan = {posiciones: structuredClone(state.tablero.posiciones), celdas: structuredClone(state.tablero.celdas)};
+  plan.posiciones[boardUnit] = point;
   await mutate("campo", {tablero: plan});
 }
 
@@ -118,8 +119,7 @@ async function animateBoard() {
 
 function setupBoard() {
   el("boardUnit").onchange = () => {boardUnit = el("boardUnit").value; renderBoard();};
-  el("boardTool").onchange = () => {boardTool = el("boardTool").value; renderBoard();};
-  el("clearTerrain").onclick = () => mutate("campo", {tablero: {posiciones: state.tablero.posiciones, celdas: []}});
+  el("scenario").onchange = () => mutate("escenario", {escenario_id: el("scenario").value});
   el("addHero").onclick = () => changePartySize(1);
   el("removeHero").onclick = () => changePartySize(-1);
   el("pauseCombat").onclick = () => {autoCombat = !autoCombat; clearTimeout(timer); renderBoard(); if (autoCombat && !busy) schedule();};

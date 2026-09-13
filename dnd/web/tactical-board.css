@@ -23,5 +23,17 @@
 .board-inspector {background:#0f161a;padding:16px;border:1px solid #354247;min-height:200px;font-size:.82rem}.board-inspector h3 {color:#dfc086;font-size:1rem}.board-inspector details {border-top:1px solid #354247;padding-top:12px}.board-inspector summary {cursor:pointer;color:#e9bd70}
 .board-event {padding:12px;background:#202a2b;border-left:3px solid #bca473;min-height:48px;margin:16px 0 8px}.party-controls {margin:14px 0}.playback-controls span {flex:1;min-width:180px}
 .hero details {margin:12px 0}.hero summary {cursor:pointer;color:#e9bd70}.hero .description,.hero .unique {min-height:0}
+/* Plano cenital ortogonal: sin caras laterales ni perspectiva isométrica. */
+.battle-grid {gap:1px;background:#75807755;border:1px solid #75807755}
+.tactical-page .battle-cell {border-radius:0;box-shadow:none;background-color:#303b32;background-image:radial-gradient(#c1cbb911 1px,transparent 1px);background-size:9px 9px}
+.tactical-page .terrain-muro {background:#69716b;background-image:linear-gradient(90deg,transparent 47%,#303c3788 48%,#303c3788 52%,transparent 53%),linear-gradient(transparent 47%,#303c3788 48%,#303c3788 52%,transparent 53%);background-size:22px 22px;box-shadow:inset 0 0 0 4px #414b44}
+.tactical-page .terrain-cobertura {background:#4c6243;box-shadow:inset 0 0 0 5px #7b8e5266;border-radius:12px}
+.tactical-page .terrain-altura {background:#70684b;box-shadow:inset 0 0 0 3px #a69b70,inset 0 0 0 7px #524c34}
+.tactical-page .terrain-barro {background:#514331;background-image:radial-gradient(ellipse,#302c2499 25%,transparent 65%);background-size:19px 13px;box-shadow:none}
+.unit-token {width:32px;height:25px;border-radius:45%;box-shadow:0 1px 4px #0008;font-size:12px;margin-top:6px}
+.unit-token::before {content:"";position:absolute;width:12px;height:12px;border:2px solid currentColor;border-radius:50%;background:inherit;top:-9px;left:7px}
+.unit-token.fallen::before {display:none}
+.battle-cell.deploy-ally {border-left:3px solid #4e9fa0;border-bottom:1px solid #39423c}
+.battle-cell.deploy-enemy {border-right:3px solid #b9675b;border-bottom:1px solid #39423c}
 @media(max-width:1000px) {.board-layout {grid-template-columns:1fr}.board-inspector {min-height:0}.tactical-page .battlefield {padding:12px}}
 @media(max-width:600px) {.tactical-page main {padding:12px}.board-toolbar label {min-width:130px}.board-event {font-size:.85rem}}
