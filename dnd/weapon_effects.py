@@ -3,12 +3,12 @@
 from item_factory import item_factory
 
 
-def armadura_tras_penetracion(modelo, armadura):
-    return max(0, armadura - item_factory.crear(modelo.arma).penetracion)
+def armadura_tras_penetracion(modelo, armadura, arma=None):
+    return max(0, armadura - modelo.penetracion_con(arma or item_factory.crear(modelo.arma)))
 
 
-def modificar_golpe(modelo, objetivo, dano, rng):
-    arma = item_factory.crear(modelo.arma)
+def modificar_golpe(modelo, objetivo, dano, rng, arma=None):
+    arma = arma or item_factory.crear(modelo.arma)
     critico = arma.critico > 0 and rng.random() < arma.critico
     if critico:
         dano *= 1.5
@@ -17,13 +17,15 @@ def modificar_golpe(modelo, objetivo, dano, rng):
     return dano, critico
 
 
-def activar_afijo(modelo, objetivo, rng):
-    afijo = item_factory.crear(modelo.arma).afijo
-    if not afijo or objetivo.hp <= 0 or rng.random() >= afijo["probabilidad"]:
-        return None
-    # El mismo efecto se renueva, no se acumula sin límite por golpes múltiples.
-    objetivo.efectos_arma[afijo["id"]] = {"dano": afijo["dano"], "turnos": afijo["turnos"]}
-    return afijo["id"]
+def activar_afijo(modelo, objetivo, rng, arma=None):
+    arma = arma or item_factory.crear(modelo.arma)
+    activados = []
+    for afijo in arma.afijos or ([arma.afijo] if arma.afijo else []):
+        if objetivo.hp <= 0 or rng.random() >= afijo["probabilidad"]:
+            continue
+        objetivo.efectos_arma[afijo["id"]] = {"dano": afijo["dano"], "turnos": afijo["turnos"]}
+        activados.append(afijo["id"])
+    return activados
 
 
 def ticks_afijos(modelo):

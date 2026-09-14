@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vault · Dungeon</title><link rel="stylesheet" href="/workshop.css"><link rel="stylesheet" href="/theme.css?v=1"><link rel="stylesheet" href="/workshop-rpg.css"><script src="/workshop.js" defer></script></head>
+<body class="workshop-page forge-page" data-page="vault"><main>
+<header><a href="/">← Menú de Dungeon</a><h1>Bóveda</h1>
+<p>Guarda materiales y comparte equipo entre tus personajes. Los cambios se guardan al completar cada operación.</p><nav><a href="/workshop.html">Taller de crafteo →</a> · <a href="/shop.html">Tienda</a></nav></header>
+<p id="error" role="alert" hidden></p><p id="message" role="status"></p>
+<label>Personaje <select id="character"></select></label><button id="refresh">Actualizar</button>
+<div id="result" role="status"></div><section aria-label="Almacenamiento"><div class="filters"><label>Buscar <input id="search" type="search" placeholder="Nombre del objeto"></label>
+<label>Categoría <select id="category"><option value="">Todas</option><option value="arma">Armas</option><option value="armadura">Armaduras</option><option value="secundario">Secundarios</option><option value="consumible">Consumibles</option><option value="material">Materiales y componentes</option></select></label>
+<label>Orden <select id="sort"><option value="nombre">Nombre</option><option value="categoria">Categoría</option><option value="cantidad">Cantidad</option></select></label></div>
+<p class="hint" id="transferHelp">Clic o foco: detalles y acciones · Clic derecho: mueve 1 · Shift + clic o arrastrar al otro panel: mueve la pila completa.</p>
+<div class="panels"><article id="inventoryPanel" class="storage-panel" aria-label="Inventario del personaje"><div class="storage-heading"><h2>Inventario</h2><span id="inventoryCount"></span></div>
+<div class="storage-actions"><button id="depositMaterials" class="secondary">Depositar materiales</button><button id="depositAll" class="secondary">Depositar todo</button></div>
+<p class="hint">Los depósitos rápidos incluyen todo el inventario, aunque haya filtros. Omiten equipo equipado y objetos restringidos.</p><div id="inventory" class="inventory-grid" role="group" aria-label="Objetos del inventario" aria-describedby="transferHelp"></div></article>
+<article id="vaultPanel" class="storage-panel" aria-label="Vault global"><div class="storage-heading"><h2>Vault global</h2><span id="capacity"></span></div><p class="hint">Compartido entre todos tus personajes.</p><div id="vault" class="inventory-grid" role="group" aria-label="Objetos del vault" aria-describedby="transferHelp"></div></article></div></section>
+</main><div id="itemPopup" class="item-popup" role="dialog" aria-labelledby="popupTitle" hidden></div></body></html>

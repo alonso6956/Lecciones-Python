@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Taller de crafteo · Dungeon</title><link rel="stylesheet" href="/workshop.css"><link rel="stylesheet" href="/theme.css?v=1"><link rel="stylesheet" href="/workshop-rpg.css"><script src="/workshop.js" defer></script></head>
+<body class="workshop-page forge-page"><main>
+<header><a href="/">← Menú de Dungeon</a><h1>Taller de crafteo</h1>
+<p>Fabrica armas, armaduras y escudos para el personaje elegido. Los cambios se guardan al completar cada operación.</p><nav><a href="/vault.html">Bóveda →</a> · <a href="/shop.html">Tienda</a></nav></header>
+<p id="error" role="alert" hidden></p><p id="message" role="status"></p>
+<label>Personaje que recibe el objeto <select id="character"></select></label><button id="refresh">Actualizar</button>
+<section aria-labelledby="craftTitle"><h2 id="craftTitle">Fabricar equipo</h2><p>Oro disponible: <strong id="gold">0</strong></p>
+<div class="skill-progress"><strong id="tierBadge" class="tier-badge">Tier I</strong><div><div class="progress-caption"><span id="progress"></span><span id="progressPercent"></span></div><progress id="skillXP" max="100" value="0" aria-label="Progreso de crafteo al siguiente tier"></progress><p id="nextTier"></p></div></div>
+<div class="craft-layout">
+<div><p class="hint">Usa primero los materiales del personaje y completa lo que falte desde el vault. El objeto queda en su inventario. Los componentes opcionales son exclusivos de las armas.</p>
+<fieldset id="craftFields"><legend>Diseño</legend>
+<label>Tipo <select id="type"></select></label><label>Material <select id="material"></select></label>
+<label>Componente opcional <select id="component"></select></label><button id="craft">Fabricar</button>
+</fieldset><p id="cost" class="hint"></p></div>
+<aside id="preview" class="craft-preview" aria-label="Previsualización del equipo" aria-live="polite"></aside>
+</div><div id="result" role="status"></div></section>
+<section aria-label="Almacenamiento"><div class="filters"><label>Buscar <input id="search" type="search" placeholder="Nombre del objeto"></label>
+<label>Categoría <select id="category"><option value="">Todas</option><option value="arma">Armas</option><option value="armadura">Armaduras</option><option value="secundario">Secundarios</option><option value="consumible">Consumibles</option><option value="material">Materiales y componentes</option></select></label>
+<label>Orden <select id="sort"><option value="nombre">Nombre</option><option value="categoria">Categoría</option><option value="cantidad">Cantidad</option></select></label></div>
+<p class="hint" id="transferHelp">Selecciona un objeto para ver sus detalles, equiparlo o nombrarlo. Para transferirlo, abre el Vault compartido.</p>
+<div><article id="inventoryPanel" class="storage-panel" aria-label="Inventario del personaje"><div class="storage-heading"><h2>Inventario</h2><span id="inventoryCount"></span></div>
+<div id="inventory" class="inventory-grid" role="group" aria-label="Objetos del inventario" aria-describedby="transferHelp"></div></article>
+</div></section>
+</main><div id="itemPopup" class="item-popup" role="dialog" aria-labelledby="popupTitle" hidden></div></body></html>

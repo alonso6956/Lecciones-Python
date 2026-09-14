@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tienda · Dungeon</title><link rel="stylesheet" href="/workshop.css"><link rel="stylesheet" href="/theme.css?v=1"><script src="/shop.js" defer></script></head>
+<body class="workshop-page"><main>
+<header><a href="/">← Menú principal</a><h1>El mercader</h1>
+<p>Compra equipo o vende lo que ya no necesitas. Cada operación se guarda inmediatamente. El equipo comprado compatible se equipa automáticamente.</p><nav><a href="/workshop.html">Taller de crafteo</a> · <a href="/vault.html">Bóveda</a></nav></header>
+<p id="error" role="alert" hidden></p><p id="message" role="status"></p>
+<label>Personaje <select id="character"></select></label><button id="refresh">Actualizar</button>
+<p>Oro disponible: <strong id="gold">0</strong></p>
+<div class="filters" role="group" aria-label="Operación de tienda"><button id="buyMode" aria-pressed="true">Comprar</button><button id="sellMode" class="secondary" aria-pressed="false">Vender</button></div>
+<section id="buyPanel" aria-labelledby="catalogTitle"><h2 id="catalogTitle">Provisiones y equipo</h2>
+<div class="filters"><label>Buscar <input id="search" type="search" placeholder="Nombre del producto"></label>
+<label>Categoría <select id="category"><option value="">Todas</option><option value="pociones">Pociones</option><option value="armas">Armas</option><option value="secundarios">Secundarios</option><option value="armaduras">Armaduras</option></select></label></div>
+<div id="products" class="panels"></div></section>
+<section id="sellPanel" aria-labelledby="inventoryTitle" hidden><h2 id="inventoryTitle">Vender del inventario</h2><p>Recibes el 50 % del valor de mercado, redondeado hacia abajo. El equipo inicial gratuito y los recursos sin precio no se venden. Desequipa una pieza desde el taller o el vault antes de venderla.</p>
+<label>Buscar en inventario <input id="sellSearch" type="search" placeholder="Nombre del objeto"></label><div id="inventory" class="panels"></div>
+<p>Para vender objetos guardados en el vault, retíralos primero al personaje que recibirá el oro.</p></section>
+</main></body></html>

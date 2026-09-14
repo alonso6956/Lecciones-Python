@@ -21,7 +21,9 @@ function accionInventario(item) {
     return {texto: estado.fase === "combate" ? "Usar · 1 acción" : "Usar", ruta: "usar-item"};
   }
   if (!["arma", "armadura", "secundario"].includes(item.clase)) return {texto: "Material", motivo: "Se utiliza en el taller del menú principal."};
-  if (item.equipado) return {texto: "Equipado", motivo: "Este objeto ya está equipado."};
+  const copiasEquipadas = Object.values(estado.jugador.equipamiento).filter(e => e?.id === item.id).length;
+  const otraMano = filtroSlot && estado.jugador.equipamiento[filtroSlot]?.id !== item.id && item.cantidad > copiasEquipadas;
+  if (item.equipado && !otraMano) return {texto: "Equipado", motivo: "Este objeto ya está equipado."};
   if (!puedeCambiarEquipo()) return {texto: "Bloqueado", motivo: "Puedes cambiar equipo entre combates."};
   if (!item.puede_equipar) return {texto: "Sin requisitos", motivo: requisitosObjeto(item.requisitos)};
   return {texto: "Equipar", ruta: "equipar"};
@@ -80,8 +82,14 @@ function renderizarInventario(jugador) {
   }
   elemento("clearEquipmentFilter").classList.toggle("hidden", !filtroSlot);
   elemento("clearEquipmentFilter").onclick = () => filtrarInventario(filtroInventario);
-  const items = jugador.inventario.filter(item => (!filtroSlot || item.slot === filtroSlot) &&
-    (filtroInventario === "todos" || (filtroInventario === "equipo" ? ["armadura", "secundario"].includes(item.clase) : item.clase === filtroInventario)));
+  const items = jugador.inventario.filter(item =>
+    (!filtroSlot || item.slot === filtroSlot ||
+      (filtroSlot === "mano_secundaria" && item.clase === "arma" && item.dual_wield)) &&
+    (filtroInventario === "todos" ||
+      (filtroInventario === "equipo"
+        ? ["armadura", "secundario"].includes(item.clase) ||
+          (filtroSlot === "mano_secundaria" && item.clase === "arma" && item.dual_wield)
+        : item.clase === filtroInventario)));
   elemento("inventoryFilterLabel").textContent = `${filtroSlot ? nombresEquipo[filtroSlot] + " · " : ""}${items.length} objetos`;
   const grid = elemento("inventoryList"), scroll = grid.scrollTop;
   const focoId = document.activeElement?.dataset?.inventoryId;
@@ -98,7 +106,9 @@ function renderizarInventario(jugador) {
     boton.onclick = () => {
       mostrarDetalleInventario(item);
       const actual = accionInventario(item);
-      if (actual.ruta) ejecutarGestion(actual.ruta, {item: item.id}, actual.ruta === "equipar" ? `${item.nombre} equipado` : `${item.nombre} utilizada`);
+      if (actual.ruta) ejecutarGestion(actual.ruta,
+        {item: item.id, ...(actual.ruta === "equipar" && filtroSlot ? {slot: filtroSlot} : {})},
+        actual.ruta === "equipar" ? `${item.nombre} equipado` : `${item.nombre} utilizada`);
     };
     return boton;
   });

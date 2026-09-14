@@ -55,12 +55,27 @@ class Inventario(ItemContainer):
             item = item_factory.crear(item_id)
             if self._cantidades.get(item.id, 0) < 1:
                 raise ValueError(f"El objeto equipado en {slot} no está en el inventario.")
-            if self._slot_de(item) != slot:
+            if self._slot_de(item, slot) != slot:
                 raise ValueError(f"El objeto {item.nombre} no corresponde al slot {slot}.")
 
+        from collections import Counter
+        usados = Counter(i for i in self._equipamiento.values() if i)
+        if any(self.cantidad(i) < cantidad for i, cantidad in usados.items()):
+            raise ValueError("Necesitas una copia de cada arma por mano.")
+        principal, secundaria = self.arma_equipada, self.secundario_equipado
+        if principal and secundaria:
+            if not principal.permite_secundaria:
+                raise ValueError("El arma principal no permite una mano secundaria.")
+            if isinstance(secundaria, Arma) and not (principal.compatible_dual and secundaria.compatible_dual):
+                raise ValueError("Ambas armas deben ser compatibles con uso dual.")
+
     @staticmethod
-    def _slot_de(item):
+    def _slot_de(item, slot=None):
         if isinstance(item, Arma):
+            if slot == "mano_secundaria":
+                if not item.compatible_dual:
+                    raise ValueError("El arma no es compatible con uso dual.")
+                return slot
             return "mano_principal"
         if isinstance(item, Secundario):
             return "mano_secundaria"
@@ -75,20 +90,24 @@ class Inventario(ItemContainer):
     def recolectar(self, identificador, cantidad=1):
         return super().recolectar(identificador, cantidad)
 
-    def equipar(self, identificador, personaje):
+    def equipar(self, identificador, personaje, slot=None):
         item = item_factory.crear(identificador)
-        slot = self._slot_de(item)
+        slot = self._slot_de(item, slot)
         if self.cantidad(item.id) < 1:
             raise ValueError("El objeto no está en el inventario.")
         if not item.cumple_requisitos(personaje):
             raise ValueError("No cumples los requisitos para equipar ese objeto.")
-        if isinstance(item, Secundario):
-            principal = self.arma_equipada
-            if principal and principal.dos_manos:
-                raise ValueError("Un arma de dos manos no permite usar mano secundaria.")
-        if isinstance(item, Arma) and item.dos_manos:
-            self._equipamiento["mano_secundaria"] = None
+        anterior = dict(self._equipamiento)
         self._equipamiento[slot] = item.id
+        if slot == "mano_principal" and isinstance(item, Arma):
+            secundaria = self.secundario_equipado
+            if not item.permite_secundaria or (isinstance(secundaria, Arma) and not item.compatible_dual):
+                self._equipamiento["mano_secundaria"] = None
+        try:
+            self._validar_equipamiento()
+        except ValueError:
+            self._equipamiento = anterior
+            raise
         return item
 
     def desequipar(self, slot):
@@ -113,7 +132,7 @@ class Inventario(ItemContainer):
         secundario = self.secundario_equipado
         return bool(
             (arma and arma.tipo_arma == tipo_requerido)
-            or (secundario and secundario.tipo_secundario == tipo_requerido)
+            or (secundario and getattr(secundario, "tipo_secundario", None) == tipo_requerido)
         )
 
     def defensa_equipo(self):
@@ -132,7 +151,7 @@ class Inventario(ItemContainer):
             if not item_id:
                 continue
             item = item_factory.crear(item_id)
-            if isinstance(item, Armadura):
+            if isinstance(item, (Armadura, Secundario)):
                 total += item.defensa
         return total
 
@@ -171,6 +190,7 @@ class Inventario(ItemContainer):
         return {
             **self._serializar_contenedor(),
             "equipamiento": dict(self._equipamiento),
+            "version_equipamiento": 2,
             "arma_equipada": self._equipamiento["mano_principal"],
         }
 
@@ -180,6 +200,18 @@ class Inventario(ItemContainer):
             raise ValueError("Los datos del inventario no son válidos.")
         for custom in datos.get("custom", {}).values():
             item_factory.registrar_instancia(custom)
+        datos = dict(datos)
+        if datos.get("version_equipamiento", 1) < 2 and datos.get("equipamiento"):
+            equipo = dict(datos["equipamiento"])
+            principal = item_factory.crear(equipo["mano_principal"]) if equipo.get("mano_principal") else None
+            secundaria = item_factory.crear(equipo["mano_secundaria"]) if equipo.get("mano_secundaria") else None
+            incompatible = principal and secundaria and (
+                not principal.permite_secundaria or
+                (isinstance(secundaria, Arma) and not (principal.compatible_dual and secundaria.compatible_dual)) or
+                (principal.id == secundaria.id and datos["items"].get(principal.id, 0) < 2))
+            if incompatible:
+                equipo["mano_secundaria"] = None
+            datos["equipamiento"] = equipo
         resultado = cls(
             datos["items"],
             datos.get("arma_equipada"),
@@ -235,6 +267,7 @@ class Inventario(ItemContainer):
                 "nombre": item.nombre,
                 "clase": item.__class__.__name__.lower(),
                 "cantidad": cantidad,
+                "calidad": getattr(item, "calidad", "legacy"),
                 "equipado": item_id in equipados,
             }
             if isinstance(item, (Arma, Secundario, Armadura)):
@@ -257,11 +290,11 @@ class Inventario(ItemContainer):
                     tier=item.tier,
                     ataque=list(item.ataque),
                     dos_manos=item.dos_manos,
-                    estadistica_escalado=item.estadistica_escalado,
-                    crecimiento_por_punto=item.crecimiento_por_punto,
+                    estadistica_escalado="fuerza",
                     peso=item.peso, durabilidad=item.durabilidad,
                     velocidad=item.velocidad, critico=item.critico, penetracion=item.penetracion,
-                    alcance=item.alcance, material=item.material, afijo=dict(item.afijo),
+                    alcance=item.alcance, material=item.material, afijo=dict(item.afijo), afijos=list(item.afijos),
+                    escalado_fuerza=item.coeficiente_fuerza, dual_wield=item.compatible_dual,
                 )
             elif isinstance(item, Secundario):
                 datos.update(

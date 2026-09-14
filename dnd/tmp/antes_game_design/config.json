@@ -1,0 +1,16 @@
+{
+  "development": {
+    "host": "127.0.0.1",
+    "port": 8000,
+    "debug": true,
+    "open_browser": true,
+    "request_logging": true
+  },
+  "production": {
+    "host": "127.0.0.1",
+    "port": 8765,
+    "debug": false,
+    "open_browser": true,
+    "request_logging": false
+  }
+}

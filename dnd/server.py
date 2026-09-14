@@ -21,7 +21,7 @@ motor = MotorJuego(roster=roster)
 prototipo = PrototypeController(roster=roster)
 estado_lock = threading.RLock()
 servidor_activo = None
-UI_VERSION = "24"
+UI_VERSION = "25"
 
 
 def configurar_logging():
@@ -105,6 +105,8 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
             try:
                 parametros = parse_qs(urlparse(self.path).query)
                 seleccion = {k: parametros.get(k, [None])[0] for k in ("personaje_id", "tipo", "material", "componente")}
+                if "componente" in parametros:
+                    seleccion["componente"] = parametros["componente"]
                 self._json(Workshop(roster).previsualizar(**seleccion))
             except ValueError as error:
                 self._json({"error": str(error)}, 400)
@@ -225,7 +227,7 @@ class ManejadorDungeon(SimpleHTTPRequestHandler):
             elif ruta == "/api/mejorar-habilidad":
                 motor.mejorar_habilidad(datos.get("habilidad", ""))
             elif ruta == "/api/equipar":
-                motor.equipar_item(datos.get("item", ""))
+                motor.equipar_item(datos.get("item", ""), datos.get("slot"))
             elif ruta == "/api/desequipar":
                 motor.desequipar_item(datos.get("slot", ""))
             elif ruta == "/api/usar-item":

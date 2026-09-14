@@ -1,10 +1,11 @@
 import math
 
 
-FACTOR_MITIGACION_ARMADURA = 22.0
+FACTOR_MITIGACION_ARMADURA = 100.0
+MITIGACION_MAXIMA = 0.60
 EVASION_BASE = 0.05
 EVASION_POR_DESTREZA = 0.03
-VELOCIDAD_POR_DESTREZA = 1
+VELOCIDAD_POR_DESTREZA = 2
 UMBRAL_HACK_SLASH = 0.70
 PESO_POR_PENALIZACION = 10
 EVASION_PERDIDA_POR_PESO = 0.05
@@ -17,24 +18,27 @@ def calcular_evasion(destreza):
 
 
 def calcular_velocidad(velocidad_base, destreza):
-    """Cada punto de DEX posterior al primero aporta 1 de Velocidad."""
+    """Alias de iniciativa: cada punto de DES posterior al primero aporta 2."""
     return velocidad_base + max(0, destreza - 1) * VELOCIDAD_POR_DESTREZA
 
 
 def calcular_penalizaciones_peso(peso_equipado, capacidad_peso=0):
-    """Penaliza cada tramo iniciado de 10 puntos por encima de la capacidad."""
-    sobrepeso = max(0, peso_equipado - capacidad_peso)
-    tramos = math.ceil(sobrepeso / PESO_POR_PENALIZACION)
-    return {
-        "evasion": tramos * EVASION_PERDIDA_POR_PESO,
-        "velocidad": tramos * VELOCIDAD_PERDIDA_POR_PESO,
-    }
+    """Bandas continuas de peso equipado; el bono ligero es +1 movimiento."""
+    relativa = max(0, peso_equipado) / max(1, capacidad_peso)
+    categoria, movimiento, factor = (
+        ("ligera", 1, 1.0) if relativa <= .50 else
+        ("normal", 0, 1.0) if relativa <= .75 else
+        ("pesada", -1, .90) if relativa <= 1 else
+        ("sobrecargado", -2, 0.0)
+    )
+    return {"categoria": categoria, "relativa": relativa, "movimiento": movimiento,
+            "factor_evasion": factor, "evasion": 1 - factor, "velocidad": 0}
 
 
 def calcular_mitigacion_armadura(armadura):
     """Devuelve la mitigación producida exclusivamente por la armadura."""
     armadura = max(0, armadura)
-    return armadura / (armadura + FACTOR_MITIGACION_ARMADURA)
+    return min(MITIGACION_MAXIMA, armadura / (armadura + FACTOR_MITIGACION_ARMADURA))
 
 
 def aplicar_mitigacion_dano(dano_bruto, bloqueo_escudo=0, armadura=0):
@@ -92,6 +96,8 @@ def calcular_dano_habilidad(
     defensa_objetivo,
     constitucion_objetivo,
     bloqueo_escudo=0,
+    fuerza=None,
+    escalado_arma=1.0,
     bloqueo_exitoso=False,
     porcentaje_dano_bloqueado=0,
 ):
@@ -104,7 +110,7 @@ def calcular_dano_habilidad(
             porcentaje_dano_bloqueado,
         )
     else:
-        factor_escalado = 1 + max(0, valor_atributo - 1) * 0.20
+        factor_escalado = 1 + escalado_arma * .10 * math.sqrt(max(0, (valor_atributo if fuerza is None else fuerza) - 1))
         dano_bruto = (
             (dano_base + dano_arma)
             * factor_escalado

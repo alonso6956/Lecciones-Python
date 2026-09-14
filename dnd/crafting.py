@@ -9,6 +9,8 @@ from uuid import uuid4
 
 from item_factory import _ruta_recurso, item_factory
 from economy import coste_fabricacion, valor_fabricacion
+from equipment_balance import (CALIDADES, NOMBRES_CALIDAD, ARMADURA_TIER, DANO_TIER, MULTIPLICADOR_ARMA, REQUISITOS, valor_calidad, repartir_armadura, componentes_validos)
+import math
 
 
 @lru_cache(maxsize=1)
@@ -20,24 +22,26 @@ def crafting_data():
 def generar_arma(personaje, tipo, material, componente=None, rng=None):
     rng = rng or random.SystemRandom()
     arma = _disenar_arma(personaje.crafting_tier, tipo, material, componente,
-                         rng.choice(list(crafting_data()["perfiles"])))
+                         rng.choice(list(crafting_data()["perfiles"])),
+                         rng.choice(list(CALIDADES)))
     arma["id"] = "craft_" + uuid4().hex
     return arma
 
 
-def _disenar_arma(tier, tipo, material, componente, perfil):
+def _disenar_arma(tier, tipo, material, componente, perfil, calidad="comun"):
     """Cálculo compartido por fabricación y preview; no crea instancias."""
     datos = crafting_data()
     if not isinstance(tipo, str) or not isinstance(material, str) or tipo not in datos["tipos"] or material not in datos["materiales"]:
         raise ValueError("Tipo o material de fabricación inválido.")
-    if componente is not None and (not isinstance(componente, str) or componente not in datos["afijos"]):
-        raise ValueError("Componente de fabricación inválido.")
+    if type(tier) is not int or tier not in DANO_TIER or calidad not in CALIDADES or perfil not in datos["perfiles"]:
+        raise ValueError("Tier, calidad o perfil de fabricación inválido.")
+    componentes = componentes_validos(componente, tier, datos["afijos"])
     presupuesto = datos["tiers"][str(tier)]
     plantilla, metal = datos["tipos"][tipo], datos["materiales"][material]
     if plantilla.get("categoria") in {"armadura", "secundario"}:
         if componente:
             raise ValueError("Los componentes ofensivos solo pueden usarse en armas.")
-        return _disenar_proteccion(tier, plantilla, material, perfil)
+        return _disenar_proteccion(tier, plantilla, material, perfil, calidad)
     base = [p + m for p, m in zip(plantilla["distribucion"], metal["cambios"])]
     # Transfiere poder entre estadísticas. Cada desviación relativa es <=10%.
     cambios = datos["perfiles"][perfil]
@@ -46,26 +50,35 @@ def _disenar_arma(tier, tipo, material, componente, perfil):
     transferencia = min(aumentos, reducciones)
     distribucion = [b + (b*c*transferencia/(aumentos if c > 0 else reducciones) if c and transferencia else 0)
                     for b, c in zip(base, cambios)]
-    afijo = deepcopy(datos["afijos"][componente]) if componente else {}
-    reserva = afijo.get("coste", 0) + (0.03 if metal.get("bonus_sobrenatural") else 0)
-    puntos = [p * presupuesto / 100 * (1 - reserva) for p in distribucion]
-    dano, velocidad, critico, penetracion = puntos
+    afijos = [deepcopy(datos["afijos"][c]) for c in componentes]
+    for afijo in afijos:
+        afijo["dano"] *= tier
+    puntos = [p * presupuesto / 100 for p in distribucion]
+    _, velocidad, critico, penetracion = puntos
+    # El perfil/material ya redistribuía presupuesto. Se conserva ese sesgo,
+    # limitado por el nuevo máximo; la calidad fija el punto de partida.
+    sesgo_dano = distribucion[0] / plantilla["distribucion"][0]
+    limite = DANO_TIER[tier][1] * MULTIPLICADOR_ARMA[tipo]
+    dano = min(math.floor(limite), max(1, round(valor_calidad(DANO_TIER[tier], calidad) * MULTIPLICADOR_ARMA[tipo] * sesgo_dano)))
     arma = asdict(item_factory.crear(plantilla["base"]))
-    arma.update(id="", nombre=f"{plantilla['nombre']} de {metal['nombre']} sin nombre",
-                precio=valor_fabricacion(plantilla["base"], tier), tipo_arma=tipo, tier=tier, inicial=False, requisitos={},
-                ataque=[max(1, round(dano / 10 * 0.8)), max(2, round(dano / 10 * 1.2))],
-                dos_manos=tipo in {"maza", "lanza"},
+    arma.update(id="", nombre=f"{plantilla['nombre']} de {metal['nombre']} ({NOMBRES_CALIDAD[calidad]})",
+                precio=valor_fabricacion(plantilla["base"], tier), tipo_arma=tipo, tier=tier, inicial=False,
+                requisitos=dict(REQUISITOS[tipo][tier - 1]), ataque=[dano, dano],
+                dos_manos=tipo in {"maza", "lanza"}, dual_wield=tipo == "daga",
+                secundaria_permitida=tipo not in {"maza", "lanza"},
                 peso=metal["peso"], durabilidad=metal["durabilidad"],
-                velocidad=round(0.7 + velocidad / 100, 4), critico=round(critico / 200, 4),
+                velocidad=1.0, critico=round(critico / 200, 4),
                 penetracion=round(penetracion / 2, 4), alcance=plantilla["alcance"],
-                material=material, perfil=perfil, afijo=afijo, presupuesto=presupuesto,
-                distribucion=puntos, bonus_sobrenatural=metal.get("bonus_sobrenatural", 0))
-    if afijo:
-        arma["afijo"]["dano"] *= tier
+                material=material, perfil=perfil, afijo=afijos[0] if afijos else {}, afijos=afijos,
+                presupuesto=presupuesto, distribucion=puntos,
+                bonus_sobrenatural=metal.get("bonus_sobrenatural", 0),
+                calidad=calidad, version_diseno=2, estadistica_escalado="fuerza",
+                crecimiento_por_punto=0)
+
     return arma
 
 
-def _disenar_proteccion(tier, plantilla, material, perfil):
+def _disenar_proteccion(tier, plantilla, material, perfil, calidad="comun"):
     """Mejora los modelos existentes; más protección implica más peso."""
     datos = crafting_data()
     metal = datos["materiales"][material]
@@ -80,7 +93,10 @@ def _disenar_proteccion(tier, plantilla, material, perfil):
                  peso=round(pieza["peso"] * metal["peso"] / 5 * variacion, 2),
                  durabilidad=round(metal["durabilidad"] * variacion))
     if plantilla["categoria"] == "armadura":
-        pieza["defensa"] = max(pieza["defensa"] + 1, round(pieza["defensa"] * poder))
+        presupuesto = min(ARMADURA_TIER[tier][1], valor_calidad(ARMADURA_TIER[tier], calidad) * factor_metal * variacion)
+        pieza["defensa"] = repartir_armadura(presupuesto)[pieza["slot"]]
+        pieza.update(calidad=calidad, version_diseno=2,
+                     nombre=f"{plantilla['nombre']} de {metal['nombre']} ({NOMBRES_CALIDAD[calidad]})")
     else:
         pieza["probabilidad_bloqueo"] = round(min(balance["bloqueo_maximo"], pieza["probabilidad_bloqueo"] * poder), 4)
         pieza["porcentaje_dano_bloqueado"] = round(min(balance["reduccion_maxima"], pieza["porcentaje_dano_bloqueado"] * poder), 4)
@@ -102,13 +118,13 @@ def progreso_crafteo(experiencia):
 
 def previsualizar_arma(personaje, tipo, material, componente=None, vault=None):
     datos = crafting_data()
-    variantes = [_disenar_arma(personaje.crafting_tier, tipo, material, componente, perfil)
-                 for perfil in datos["perfiles"]]
+    variantes = [_disenar_arma(personaje.crafting_tier, tipo, material, componente, perfil, calidad)
+                 for perfil in datos["perfiles"] for calidad in CALIDADES]
     arma = variantes[0]
     coste = personaje.crafting_tier * datos["coste_material_por_tier"]
     recursos = [{"item_id": "material_" + material, "nombre": datos["materiales"][material]["nombre"], "necesario": coste}]
-    if componente:
-        recursos.append({"item_id": componente, "nombre": datos["afijos"][componente]["nombre"], "necesario": 1})
+    for componente_id in componentes_validos(componente, personaje.crafting_tier, datos["afijos"]):
+        recursos.append({"item_id": componente_id, "nombre": datos["afijos"][componente_id]["nombre"], "necesario": 1})
     for recurso in recursos:
         recurso["inventario"] = personaje.inventario.cantidad(recurso["item_id"])
         recurso["vault"] = vault.cantidad(recurso["item_id"]) if vault is not None else 0
@@ -122,6 +138,8 @@ def previsualizar_arma(personaje, tipo, material, componente=None, vault=None):
     resultado = {"nombre": f"{datos['tipos'][tipo]['nombre']} de {datos['materiales'][material]['nombre']}",
             "categoria": datos["tipos"][tipo].get("categoria", "arma"),
             "material": material, "tier": arma["tier"],
+            "calidades": [NOMBRES_CALIDAD[c] for c in CALIDADES] if arma.get("version_diseno") == 2 else [],
+            "afijos_maximos": personaje.crafting_tier, "afijos": arma.get("afijos", []),
             "rangos": {k: [min(a[k] for a in variantes), max(a[k] for a in variantes)]
                        for k in ("velocidad", "critico", "penetracion", "defensa", "probabilidad_bloqueo", "porcentaje_dano_bloqueado", "peso", "durabilidad") if k in arma},
             "durabilidad": arma["durabilidad"], "peso": arma["peso"],
@@ -140,10 +158,11 @@ def previsualizar_arma(personaje, tipo, material, componente=None, vault=None):
 def fabricar(personaje, tipo, material, componente=None, rng=None, vault=None):
     datos = crafting_data()
     # Se valida la selección antes de consultar o consumir recursos.
-    if not isinstance(tipo, str) or not isinstance(material, str) or (componente is not None and not isinstance(componente, str)):
+    if not isinstance(tipo, str) or not isinstance(material, str):
         raise ValueError("Selección de crafteo inválida.")
-    if tipo not in datos["tipos"] or material not in datos["materiales"] or (componente is not None and componente not in datos["afijos"]):
+    if tipo not in datos["tipos"] or material not in datos["materiales"]:
         raise ValueError("Selección de crafteo inválida.")
+    componentes_validos(componente, personaje.crafting_tier, datos["afijos"])
     preview = previsualizar_arma(personaje, tipo, material, componente, vault)
     if any(r["disponible"] < r["necesario"] for r in preview["recursos"]):
         raise ValueError("No hay suficientes materiales o componentes entre el inventario y el vault.")

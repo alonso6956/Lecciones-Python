@@ -24,8 +24,8 @@ def _construir_catalogo_compatible():
                 "inicial": item.inicial,
                 "ataque": item.ataque,
                 "dos_manos": item.dos_manos,
-                "estadistica_escalado": item.estadistica_escalado,
-                "crecimiento_por_punto": item.crecimiento_por_punto,
+                "estadistica_escalado": "fuerza",
+                "escalado_fuerza": item.coeficiente_fuerza,
                 "precio": item.precio,
                 "requisitos": dict(item.requisitos),
             }

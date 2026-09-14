@@ -1,0 +1,141 @@
+{
+  "ofensiva": {
+    "n": 20,
+    "seed_base": 1234,
+    "victorias_pct": 0.0,
+    "rondas_promedio": 6.85,
+    "rondas_por_resultado": {
+      "derrota": 6.85
+    },
+    "derrotas_por_causa_pct": {
+      "dano_directo": 75.0,
+      "sangrado": 25.0
+    },
+    "escudo_activado_pct": 50.0,
+    "ruptura_exitosa_pct": 0.0,
+    "ruptura_sobre_activaciones_pct": 0.0,
+    "castigo_escudo_pct": 10.0,
+    "dano_recibido_promedio_por_tag": {
+      "dano_directo": 87.85,
+      "sangrado": 83.5,
+      "escudo_no_roto": 3.3
+    },
+    "supervivencia_por_personaje_pct": {
+      "aria": 0.0,
+      "bruno": 0.0,
+      "cora": 0.0
+    }
+  },
+  "adaptada": {
+    "n": 20,
+    "seed_base": 1234,
+    "victorias_pct": 0.0,
+    "rondas_promedio": 5.65,
+    "rondas_por_resultado": {
+      "derrota": 5.65
+    },
+    "derrotas_por_causa_pct": {
+      "dano_directo": 55.0,
+      "desgaste_general": 20.0,
+      "sangrado": 20.0,
+      "escudo_no_roto": 5.0
+    },
+    "escudo_activado_pct": 100.0,
+    "ruptura_exitosa_pct": 0.0,
+    "ruptura_sobre_activaciones_pct": 0.0,
+    "castigo_escudo_pct": 85.0,
+    "dano_recibido_promedio_por_tag": {
+      "dano_directo": 74.75,
+      "sangrado": 72.8,
+      "escudo_no_roto": 25.95
+    },
+    "supervivencia_por_personaje_pct": {
+      "aria": 0.0,
+      "bruno": 0.0,
+      "cora": 0.0
+    }
+  },
+  "solo_build": {
+    "n": 20,
+    "seed_base": 1234,
+    "victorias_pct": 0.0,
+    "rondas_promedio": 6.85,
+    "rondas_por_resultado": {
+      "derrota": 6.85
+    },
+    "derrotas_por_causa_pct": {
+      "dano_directo": 75.0,
+      "sangrado": 25.0
+    },
+    "escudo_activado_pct": 50.0,
+    "ruptura_exitosa_pct": 0.0,
+    "ruptura_sobre_activaciones_pct": 0.0,
+    "castigo_escudo_pct": 10.0,
+    "dano_recibido_promedio_por_tag": {
+      "dano_directo": 87.85,
+      "sangrado": 83.5,
+      "escudo_no_roto": 3.3
+    },
+    "supervivencia_por_personaje_pct": {
+      "aria": 0.0,
+      "bruno": 0.0,
+      "cora": 0.0
+    }
+  },
+  "solo_arma": {
+    "n": 20,
+    "seed_base": 1234,
+    "victorias_pct": 0.0,
+    "rondas_promedio": 5.65,
+    "rondas_por_resultado": {
+      "derrota": 5.65
+    },
+    "derrotas_por_causa_pct": {
+      "dano_directo": 55.0,
+      "desgaste_general": 20.0,
+      "sangrado": 20.0,
+      "escudo_no_roto": 5.0
+    },
+    "escudo_activado_pct": 100.0,
+    "ruptura_exitosa_pct": 0.0,
+    "ruptura_sobre_activaciones_pct": 0.0,
+    "castigo_escudo_pct": 85.0,
+    "dano_recibido_promedio_por_tag": {
+      "dano_directo": 74.75,
+      "sangrado": 72.8,
+      "escudo_no_roto": 25.95
+    },
+    "supervivencia_por_personaje_pct": {
+      "aria": 0.0,
+      "bruno": 0.0,
+      "cora": 0.0
+    }
+  },
+  "solo_ia": {
+    "n": 20,
+    "seed_base": 1234,
+    "victorias_pct": 0.0,
+    "rondas_promedio": 6.85,
+    "rondas_por_resultado": {
+      "derrota": 6.85
+    },
+    "derrotas_por_causa_pct": {
+      "dano_directo": 75.0,
+      "sangrado": 25.0
+    },
+    "escudo_activado_pct": 50.0,
+    "ruptura_exitosa_pct": 0.0,
+    "ruptura_sobre_activaciones_pct": 0.0,
+    "castigo_escudo_pct": 10.0,
+    "dano_recibido_promedio_por_tag": {
+      "dano_directo": 87.85,
+      "sangrado": 83.5,
+      "escudo_no_roto": 3.3
+    },
+    "supervivencia_por_personaje_pct": {
+      "aria": 0.0,
+      "bruno": 0.0,
+      "cora": 0.0
+    }
+  }
+}

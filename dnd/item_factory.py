@@ -58,7 +58,17 @@ class ItemFactory:
         if isinstance(arma, Arma):
             if len(arma.ataque) != 2 or any(type(v) is not int for v in arma.ataque) or not 0 < arma.ataque[0] <= arma.ataque[1]:
                 raise ValueError("Estadísticas de arma procedural inválidas.")
-            numeros += [*arma.ataque, arma.velocidad, arma.critico, arma.penetracion, *arma.distribucion]
+            numeros += [*arma.ataque, arma.velocidad, arma.critico, arma.penetracion, arma.impacto, *arma.distribucion]
+            if type(arma.precision) not in (int, float) or not math.isfinite(arma.precision):
+                raise ValueError("Precisión inválida.")
+            if arma.escalado_fuerza is not None and (type(arma.escalado_fuerza) not in (int, float) or not math.isfinite(arma.escalado_fuerza) or not 0 <= arma.escalado_fuerza <= 1.2):
+                raise ValueError("Escalado de arma inválido.")
+            for afijo in arma.afijos or ([arma.afijo] if arma.afijo else []):
+                if not isinstance(afijo, dict) or not isinstance(afijo.get("id"), str):
+                    raise ValueError("Afijo inválido.")
+                valores = [afijo.get(k) for k in ("probabilidad", "dano", "turnos")]
+                if any(type(v) not in (int, float) or not math.isfinite(v) for v in valores) or not 0 <= valores[0] <= 1 or valores[1] < 0 or type(valores[2]) is not int or valores[2] < 1:
+                    raise ValueError("Propiedades de afijo inválidas.")
             if not 0 <= arma.critico <= 1 or arma.velocidad <= 0:
                 raise ValueError("Probabilidad o velocidad inválidas.")
         elif isinstance(arma, Armadura):
@@ -66,11 +76,13 @@ class ItemFactory:
                 raise ValueError("Armadura procedural inválida.")
             numeros += [arma.defensa, *arma.bonificaciones.values()]
         else:
-            numeros += [arma.probabilidad_bloqueo, arma.porcentaje_dano_bloqueado, *arma.bonificaciones.values()]
+            numeros += [arma.defensa, arma.probabilidad_bloqueo, arma.porcentaje_dano_bloqueado, *arma.bonificaciones.values()]
             if arma.tipo_secundario != "escudo" or not 0 <= arma.probabilidad_bloqueo <= 1 or not 0 <= arma.porcentaje_dano_bloqueado <= 1:
                 raise ValueError("Escudo procedural inválido.")
         if any(type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in numeros):
             raise ValueError("Las estadísticas del equipo deben ser números finitos no negativos.")
+        from equipment_balance import validar_equipo_nuevo
+        validar_equipo_nuevo(arma)
         self._instancias[identificador] = datos
         return arma
 

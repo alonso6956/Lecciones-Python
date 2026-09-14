@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Desafío táctico · Dungeon</title>
+  <link rel="stylesheet" href="/tactical.css">
+  <link rel="stylesheet" href="/theme.css?v=1">
+  <link rel="stylesheet" href="/tactical-board.css">
+  <script src="/tactical-board.js" defer></script>
+  <script src="/tactical.js" defer></script>
+</head>
+<body class="tactical-page">
+<main>
+  <header class="topbar">
+    <a href="/">← Dungeon / Menú</a><span>DESAFÍO TÁCTICO · HASTA 6 ALIADOS</span>
+  </header>
+  <section class="intro">
+    <p class="eyebrow">OPERACIONES TÁCTICAS</p>
+    <h1>La victoria empieza antes del combate.</h1>
+    <p>Prepara tu grupo, observa el combate automático y usa el diagnóstico para ajustar el siguiente intento.</p>
+    <ol class="steps" aria-label="Ciclo del desafío"><li id="stepPrep">01 · Preparación</li><li id="stepFight">02 · Combate</li><li id="stepResult">03 · Diagnóstico y reajuste</li></ol>
+  </section>
+  <p id="error" role="alert" hidden></p>
+  <button id="reconnect" hidden>Reanudar conexión</button>
+  <section class="encounter" aria-labelledby="bossTitle">
+    <div><p class="eyebrow">ENCUENTRO DE PRUEBA</p><h2 id="bossTitle">Guardián</h2><p id="bossStats"></p></div>
+    <p id="encounterRules"></p>
+  </section>
+  <section class="battlefield" aria-labelledby="boardTitle">
+    <div class="section-title"><div><p class="eyebrow">CAMPO DE BATALLA · 10 × 8</p><h2 id="boardTitle">Despliegue y terreno</h2></div><span id="boardRound" role="status"></span></div>
+    <fieldset id="boardFields"><legend>Formación del grupo</legend><div class="board-toolbar">
+      <label>Personaje <select id="boardUnit"></select></label>
+      <label>Escenario de prueba <select id="scenario"></select></label>
+    </div><p id="toolHelp" class="muted"></p></fieldset>
+    <div class="board-layout"><div class="board-scroll"><div id="battleGrid" class="battle-grid" role="group" aria-label="Tablero táctico. Usa las flechas para recorrer las casillas."></div></div>
+      <aside class="board-inspector"><div id="cellDetails"><h3>Inspecciona una casilla</h3><p>Selecciona una ficha y después su casilla de despliegue. Durante el combate puedes consultar cualquier casilla.</p></div>
+        <details><summary>Reglas del campo</summary><p>Movimiento ortogonal: 2–4 puntos por turno según velocidad. Moverse permite atacar si se llega al alcance. Los obstáculos bloquean visión y paso.</p><p>Altura: ±15 % de daño. Cobertura: −20 % de daño recibido. Humo: −25 %. Flanquear a un enemigo desde dos lados opuestos adyacentes: +15 %.</p><p>El terreno y los enemigos vienen definidos por el encuentro. Las habilidades de campo, incluidas las trampas, solo las puede ejecutar la IA si el personaje las posee.</p></details>
+      </aside></div>
+    <p id="boardEvent" role="status" class="board-event"></p><p id="terrainBudget" class="muted"></p>
+    <div class="playback-controls"><button id="pauseCombat" type="button" disabled>Pausar</button><button id="nextRound" type="button" disabled>Avanzar una ronda</button><span class="muted">La pausa se aplica al terminar la ronda que se está mostrando.</span></div>
+  </section>
+  <section id="preparation" aria-labelledby="prepTitle">
+    <div class="section-title"><div><p class="eyebrow">PERSONAJES DEL CALABOZO</p><h2 id="prepTitle">Prepara de 3 a 6 personajes</h2></div><span id="attempts"></span></div>
+    <p class="muted">Elige los personajes, sus armas y prioridades de IA. Se usa el progreso del último guardado. Ajusta sus posiciones en la zona azul; el escenario fija el mapa y los rivales.</p>
+    <div class="party-controls"><button id="addHero" type="button">Añadir personaje</button><button id="removeHero" type="button">Quitar último personaje</button><span id="partyCount"></span></div>
+    <p id="lockMessage" role="status"></p>
+      <fieldset id="prepFields"><legend class="sr-only">Configuración del grupo</legend><div id="party" class="party-grid"></div></fieldset>
+    <div class="launch">
+      <label>Semilla del encuentro <input id="seed" type="number" min="0" max="4294967295" step="1" value="1235"><small>La misma semilla permite comparar dos preparaciones.</small></label>
+      <button id="start" class="primary">Iniciar combate automático →</button>
+    </div>
+  </section>
+  <section id="battle" hidden aria-labelledby="fightTitle">
+    <div class="section-title"><h2 id="fightTitle">Combate automático</h2><label>Ritmo <select id="speed"><option value="600">Normal</option><option value="150">Rápido</option><option value="0">Instantáneo</option></select></label></div>
+    <p id="round" role="status"></p>
+    <div id="health" class="health-grid"></div>
+  </section>
+  <section id="result" hidden aria-labelledby="resultTitle" tabindex="-1">
+    <p class="eyebrow">RESULTADO DEL INTENTO</p><h2 id="resultTitle"></h2><p id="resultStats"></p>
+    <div id="diagnostic"></div>
+    <button id="adjust" class="primary">Reajustar y reintentar →</button>
+    <p class="muted">Conservarás tus selecciones. El próximo combate comienza con vida completa, sin estados ni cooldowns anteriores.</p>
+  </section>
+  <section id="logSection" hidden aria-labelledby="logTitle">
+    <div class="section-title"><h2 id="logTitle">Registro del combate</h2><button id="download">Descargar registro JSON</button></div>
+    <div id="log" role="log" aria-label="Eventos por ronda" aria-live="off"></div>
+  </section>
+  <footer>Preparación → Combate automático → Diagnóstico → Reajuste → Reintento</footer>
+</main>
+</body>
+</html>

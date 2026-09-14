@@ -55,8 +55,11 @@ SPAWN_POR_HABITACION = (
 )
 
 
+from derived_stats import EstadisticasDerivadas, bonus
+
+
 @dataclass
-class Enemigo:
+class Enemigo(EstadisticasDerivadas):
     VELOCIDAD_BASE = 10
 
     raza: str
@@ -87,17 +90,16 @@ class Enemigo:
         return f"{self.raza} {self.arquetipo}"
 
     def calcular_dano_base(self):
-        factor = calcular_factor_arma(self.arma, self.fuerza, self.destreza)
-        return round(3 * factor)
+        return 3
 
     def calcular_defensa_base(self):
-        """Los enemigos usan el mismo escalado controlado de CON."""
-        return 1 + self.constitucion // 2
+        """La Constitución no concede Armadura a los enemigos."""
+        return bonus(self, "armadura")
 
     @property
     def defensa_total(self):
-        # Armas y escudos no aportan armadura; el escudo bloquea por separado.
-        return self.calcular_defensa_base()
+        escudo = item_factory.crear(self.secundario) if self.secundario else None
+        return self.calcular_defensa_base() + getattr(escudo, "defensa", 0)
 
     @property
     def evasion(self):
@@ -105,7 +107,7 @@ class Enemigo:
 
     @property
     def velocidad(self):
-        return calcular_velocidad(self.VELOCIDAD_BASE, self.destreza)
+        return self.iniciativa
 
     def nivel_habilidad(self, habilidad_id):
         return self.habilidades.get(habilidad_id, 0)
@@ -167,7 +169,7 @@ def crear_enemigo(raza, arquetipo):
     }
     for estadistica, bonus in datos_arquetipo["bonificaciones"].items():
         stats[estadistica] += bonus
-    salud_maxima = round(30 * (1 + (stats["constitucion"] - 1) * 0.20))
+    salud_maxima = {"Goblin": 30, "Esqueleto": 36, "Bandido": 42, "Orco": 48, "Troll": 54, "Guardián": 54}[raza] + {"Rogue": 0, "Guerrero": 6, "Bárbaro": 0, "Jefe": 60}[arquetipo]
     return Enemigo(
         raza=raza,
         arquetipo=arquetipo,

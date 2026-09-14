@@ -8,11 +8,17 @@ let popupAnchor = null, popupTimer = null, dragged = null, restoringFocus = fals
 const canAct = () => !busy && Boolean(state?.disponible && state.personaje_id);
 const isVault = document.body.dataset.page === "vault";
 function options(id, entries, empty) {
-  const select = el(id), previous = select.value;
+  const select = el(id), previous = [...select.selectedOptions].map(o => o.value);
   select.replaceChildren();
   if (empty) { const option = node("option", empty); option.value = ""; select.append(option); }
   for (const [key, data] of Object.entries(entries)) { const option = node("option", data.nombre); option.value = key; select.append(option); }
-  if ([...select.options].some(o => o.value === previous)) select.value = previous;
+  if (select.multiple) {
+    for (const option of select.options) option.selected = previous.includes(option.value);
+  } else if ([...select.options].some(o => o.value === previous[0])) {
+    select.value = previous[0];
+  } else {
+    select.selectedIndex = 0;
+  }
 }
 function errorMessage(error) { el("error").textContent = error.message; el("error").hidden = false; }
 function updateControls() {
@@ -75,7 +81,7 @@ function stats(data) {
   if (data.precio !== undefined) { add("Valor de mercado", `${data.precio} oro`); add("Venta", `${Math.floor(data.precio / 2)} oro`); }
   if (data.ataque) add("Daño del arma", data.ataque.join("–"));
   if (data.defensa !== undefined) add("Defensa", data.defensa);
-  if (data.velocidad !== undefined) add("Velocidad", `×${data.velocidad}`);
+  if (data.calidad && data.calidad !== "legacy") add("Calidad", data.calidad);
   if (data.critico !== undefined) add("Crítico", `${(data.critico * 100).toFixed(1)}%`);
   if (data.penetracion !== undefined) add("Penetración", Number(data.penetracion.toFixed(1)));
   for (const [key, label] of [["durabilidad", "Durabilidad"], ["peso", "Peso"], ["alcance", "Alcance"]]) if (data[key] !== undefined) add(label, data[key]);
@@ -98,7 +104,7 @@ async function updatePreview() {
   if (!state?.personaje_id) return;
   const version = previewVersion; previewRequest = new AbortController();
   const params = new URLSearchParams({personaje_id: state.personaje_id, tipo: el("type").value, material: el("material").value});
-  if (el("component").value) params.set("componente", el("component").value);
+  for (const opt of el("component").selectedOptions) { if (opt.value) params.append("componente", opt.value); }
   try {
     const response = await fetch(`/api/taller/previsualizar?${params}`, {signal: previewRequest.signal});
     const data = await response.json();
@@ -116,20 +122,22 @@ function renderPreview() {
   heading.append(icon(p), node("h3", `${p.nombre}${p.afijo.id ? ` · ${p.afijo.id}` : ""}`));
   const list = stats({tier: p.tier, alcance: p.alcance, requisitos: p.requisitos});
   const add = (k, v) => list.append(node("dt", k), node("dd", v));
+  if (p.calidades?.length) add("Calidades posibles", p.calidades.join(" · "));
+  add("Afijos máximos", p.afijos_maximos);
   if (p.ataque) { add("Daño mínimo posible", range(p.ataque.minimo)); add("Daño máximo posible", range(p.ataque.maximo)); }
   for (const [key, label, scale, suffix] of [["velocidad", "Velocidad", 1, "×"], ["critico", "Crítico", 100, "%"], ["penetracion", "Penetración", 1, ""], ["defensa", "Defensa", 1, ""], ["probabilidad_bloqueo", "Bloqueo", 100, "%"], ["porcentaje_dano_bloqueado", "Daño bloqueado", 100, "%"], ["peso", "Peso", 1, ""], ["durabilidad", "Durabilidad", 1, ""]]) {
     if (p.rangos[key]) add(label, `${range(p.rangos[key], scale)}${suffix}`);
   }
   add("Fabricación", `${p.coste_oro} oro + materiales`);
   add("Valor de mercado", `${p.valor_mercado} oro`); add("Venta", `${p.precio_venta} oro`);
-  const hint = node("p", "El perfil aleatorio determina los valores finales. El coste en oro de fabricación siempre supera el valor de mercado y lo que recuperas al vender."); hint.className = "hint";
+  const hint = node("p", "La calidad y el perfil se sortean al fabricar y determinan los valores finales. El coste en oro de fabricación siempre supera el valor de mercado y lo que recuperas al vender."); hint.className = "hint";
   const resources = node("ul"); resources.className = "resource-list";
   for (const r of p.recursos) {
     const enough = r.disponible >= r.necesario;
     const row = node("li", `${enough ? "✓" : "✕"} ${r.nombre}: ${r.disponible}/${r.necesario} · Inventario: ${r.inventario} · Vault: ${r.vault}${enough ? "" : " · insuficiente"}`);
     row.className = enough ? "enough" : "missing"; resources.append(row);
   }
-  target.append(heading, list, node("p", effectText(p.afijo)), hint, resources);
+  target.append(heading, list, node("p", p.afijos?.length ? p.afijos.map(effectText).join(" · ") : effectText(p.afijo)), hint, resources);
   if (!p.espacio_disponible) target.append(node("p", "No hay espacio para el objeto en este inventario."));
   if (p.oro_disponible < p.coste_oro) target.append(node("p", `Oro insuficiente: tienes ${p.oro_disponible} y necesitas ${p.coste_oro}.`));
 }
@@ -232,7 +240,7 @@ function renderStorage() {
 }
 function renderResult() {
   const target = el("result"); target.replaceChildren(); if (!crafted) return;
-  target.append(node("h3", crafted.nombre), stats(crafted), node("p", effectText(crafted.afijo)));
+  target.append(node("h3", crafted.nombre), stats(crafted), node("p", crafted.afijos?.length ? crafted.afijos.map(effectText).join(" · ") : effectText(crafted.afijo)));
   const label = node("label", "Nombre del objeto"), name = node("input"); name.id = "weaponName"; name.maxLength = 60; name.required = true; name.value = crafted.nombre; label.append(name);
   const save = node("button", "Guardar nombre"); save.disabled = !canAct();
   save.onclick = () => { if (name.reportValidity()) act("nombrar", {item_id: crafted.id, nombre: name.value}); }; target.append(label, save);
@@ -245,8 +253,8 @@ function render() {
   el("tierBadge").textContent = `Tier ${roman(p.tier)}`;
   el("progress").textContent = p.objetivo ? `${p.actual} / ${p.objetivo} fabricaciones para avanzar` : `${state.crafting_exp} fabricaciones · Maestría alcanzada`;
   el("progressPercent").textContent = `${p.porcentaje}%`; el("skillXP").value = p.porcentaje;
-  el("nextTier").textContent = p.siguiente_tier ? `Siguiente: Tier ${roman(p.siguiente_tier)} · Equipo de mayor poder · Coste: ${p.siguiente_coste} materiales y oro según la pieza.` : "Tier V · Puedes fabricar el equipo de mayor poder del taller.";
-  el("cost").textContent = `Coste: ${state.coste_material} materiales${el("component").value ? " y 1 componente" : ""}.`;
+  el("nextTier").textContent = p.siguiente_tier ? `Siguiente: Tier ${roman(p.siguiente_tier)} · Equipo de mayor poder · Coste: ${p.siguiente_coste} materiales y oro según la pieza.` : "Tier IV · Puedes fabricar el equipo de mayor poder del taller.";
+  el("cost").textContent = `Coste: ${state.coste_material} materiales y ${[...el("component").selectedOptions].filter(o => o.value).length} componente(s).`;
   el("gold").textContent = state.oro;
   }
   if (isVault) el("capacity").textContent = `${state.vault.ocupados} / ${state.vault.capacidad} espacios`;
@@ -261,9 +269,9 @@ for (const id of ["search", "category", "sort"]) el(id).oninput = renderStorage;
 if (!isVault) {
 for (const id of ["type", "material", "component"]) el(id).onchange = () => {
   if (state.catalogo.tipos[el("type").value]?.categoria !== "arma") el("component").value = "";
-  el("cost").textContent = `Coste: ${state.coste_material} materiales${el("component").value ? " y 1 componente" : ""}.`; updatePreview();
+  el("cost").textContent = `Coste: ${state.coste_material} materiales y ${[...el("component").selectedOptions].filter(o => o.value).length} componente(s).`; updatePreview();
 };
-el("craft").onclick = () => { if (preview?.puede_fabricar) act("fabricar", {tipo: el("type").value, material: el("material").value, componente: el("component").value || null}); };
+el("craft").onclick = () => { if (preview?.puede_fabricar) act("fabricar", {tipo: el("type").value, material: el("material").value, componente: [...el("component").selectedOptions].map(o => o.value).filter(Boolean)}); };
 }
 if (isVault) {
 el("depositMaterials").onclick = () => act("depositar_materiales");

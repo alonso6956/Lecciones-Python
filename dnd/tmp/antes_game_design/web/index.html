@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dungeon</title>
+    <link rel="stylesheet" href="/style.css?v=21">
+    <link rel="stylesheet" href="/theme.css?v=1">
+    <link rel="stylesheet" href="/combat-inventory.css?v=22">
+    <link rel="stylesheet" href="/character-panel.css?v=23">
+  </head>
+  <body>
+  <main class="shell">
+    <header class="brand">
+      <div>
+        <p class="eyebrow">CRÓNICAS DEL CALABOZO</p>
+        <h1>Dungeon</h1>
+      </div>
+      <div class="header-actions">
+        <div id="roomBadge" class="room-badge hidden">
+          Habitación <strong id="room">0/50</strong>
+        </div>
+        <button id="characterButton" class="header-button hidden" aria-haspopup="dialog" aria-controls="collectionOverlay">Personaje</button>
+        <button id="pauseButton" class="pause-button hidden">Pausa</button>
+      </div>
+    </header>
+
+    <section id="menu" class="start menu card game-panel">
+      <p class="kicker menu-subtitle">MENÚ PRINCIPAL</p>
+      <h2 class="menu-title">Dungeon</h2>
+      <div class="menu-actions">
+        <button id="tacticalButton" class="primary wide btn-game" disabled>Desafío táctico · Hasta 6 personajes</button>
+        <p id="tacticalMessage" role="status"></p>
+        <button id="newButton" class="primary wide btn-game">Crear personaje</button>
+        <button id="loadButton" class="wide btn-game secondary">Elegir personaje</button>
+        <a href="/shop.html" class="btn-game secondary">Tienda</a>
+        <a href="/workshop.html" class="btn-game special">Taller de crafteo</a>
+        <a href="/vault.html" class="btn-game secondary">Bóveda</a>
+        <button id="exitButton" class="wide btn-game secondary">Salir</button>
+      </div>
+      <p id="menuMessage" class="menu-message"></p>
+    </section>
+
+    <section id="start" class="start card hidden">
+      <p class="kicker">Prepara tu expedición</p>
+      <h2>Crea tu aventurero</h2>
+      <label for="name">Nombre</label>
+      <input
+        id="name"
+        maxlength="30"
+        placeholder="¿Cómo te llamas?"
+        autocomplete="off"
+      >
+      <p>Comienzas con una espada básica. Elegirás tu clase al nivel 10.</p>
+      <button id="startButton" class="primary wide">
+        Entrar al calabozo
+      </button>
+      <button id="cancelCreationButton" class="wide">Volver al menú</button>
+    </section>
+
+    <section id="game" class="game hidden">
+      <div class="hud card">
+        <div class="identity">
+          <div class="avatar">⚔</div>
+          <div>
+            <span id="playerName">—</span>
+            <small id="weaponName">—</small>
+            <small id="className">Sin clase · Sin chispa</small>
+          </div>
+        </div>
+
+        <div class="vital">
+          <div>
+            <span>VIDA</span>
+            <strong id="hpText">0/0</strong>
+          </div>
+          <div class="bar">
+            <i id="hpBar"></i>
+          </div>
+        </div>
+
+        <div class="vital energy">
+          <div>
+            <span>ENERGÍA</span>
+            <strong id="energyText">0/3</strong>
+          </div>
+          <div id="energyPips" class="pips"></div>
+        </div>
+
+        <div class="resource">
+          <span>NIVEL</span>
+          <strong id="level">1</strong>
+        </div>
+        <div class="resource">
+          <span>EXP</span>
+          <strong id="exp">0</strong>
+        </div>
+        <div class="resource gold">
+          <span>ORO</span>
+          <strong id="gold">0</strong>
+        </div>
+      </div>
+
+      <div class="content-grid">
+        <section class="encounter card">
+          <p id="phaseLabel" class="kicker">ENCUENTRO</p>
+          <h2 id="encounterTitle">Explorando…</h2>
+          <p id="intent" class="intent"></p>
+          <div id="enemyHealth" class="enemy-health hidden">
+            <div>
+              <span>VIDA DEL ENEMIGO</span>
+              <strong id="enemyHpText"></strong>
+            </div>
+            <div class="bar enemy">
+              <i id="enemyHpBar"></i>
+            </div>
+          </div>
+          <div id="actions" class="actions"></div>
+          <p id="error" class="error"></p>
+        </section>
+
+        <aside class="sheet card">
+          <p class="kicker">
+            PERSONAJE · <span id="statPoints">0</span> punto(s) de estadística
+          </p>
+          <div class="stats">
+            <div>
+              <span>Fuerza</span>
+              <strong id="strength">1</strong>
+            </div>
+            <div>
+              <span>Destreza</span>
+              <strong id="dexterity">1</strong>
+            </div>
+            <div>
+              <span>Constitución</span>
+              <strong id="constitution">1</strong>
+            </div>
+            <div>
+              <span>Armadura</span>
+              <strong id="defense">0</strong>
+            </div>
+            <div>
+              <span>Ataque</span>
+              <strong id="attack">0–0</strong>
+            </div>
+            <div>
+              <span>Velocidad</span>
+              <strong id="speed">10</strong>
+            </div>
+            <div>
+              <span>Evasión</span>
+              <strong id="evasion">5%</strong>
+            </div>
+            <div class="weight-stat">
+              <span>Peso</span>
+              <strong id="weight">0/12</strong>
+              <small id="weightPenalty" class="weight-penalty hidden"></small>
+            </div>
+          </div>
+          <section id="statusPanel" class="status-panel">
+            <p class="kicker">ESTADOS ACTIVOS</p>
+            <div id="activeStatuses" class="status-list"></div>
+          </section>
+          <div class="divider"></div>
+          <p class="kicker">ÚLTIMOS EVENTOS</p>
+          <div id="log" class="log"></div>
+        </aside>
+      </div>
+    </section>
+    </main>
+
+    <div id="pauseOverlay" class="overlay hidden" role="dialog" aria-modal="true">
+      <section class="pause-panel card">
+        <p class="kicker">PARTIDA EN PAUSA</p>
+        <h2 id="pauseTitle">Menú de pausa</h2>
+        <div id="pauseActions" class="menu-actions">
+          <button id="resumeButton" class="primary wide">Continuar</button>
+          <button id="mainMenuButton" class="wide">Salir al menú principal</button>
+        </div>
+        <div id="slotPanel" class="hidden">
+          <p id="slotHelp" class="slot-help"></p>
+          <div id="slotList" class="slot-list"></div>
+          <button id="backPauseButton" class="wide">Volver</button>
+        </div>
+        <p id="pauseMessage" class="menu-message"></p>
+      </section>
+    </div>
+
+    <div id="collectionOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="collectionTitle">
+      <section id="collectionPanel" class="collection-panel card management-panel character-panel" tabindex="-1">
+        <header class="collection-header"><div><p class="kicker">PERSONAJE</p>
+        <h2 id="collectionTitle">Personaje</h2></div>
+        <button id="closeCollectionButton">Cerrar · Esc</button></header>
+        <div id="characterTabs" class="character-tabs" role="tablist" aria-label="Secciones de personaje">
+          <button id="characterTabOverview" role="tab" aria-selected="true" aria-controls="characterSummaryPanel" data-character-tab="personaje">Personaje</button>
+          <button id="characterTabClass" role="tab" aria-selected="false" aria-controls="skillsPanel" tabindex="-1" data-character-tab="clase">Clase</button>
+          <button id="characterTabInventory" role="tab" aria-selected="false" aria-controls="inventoryPanel" tabindex="-1" data-character-tab="inventario">Inventario</button>
+          <button id="characterTabSpark" role="tab" aria-selected="false" aria-controls="sparkPanel" tabindex="-1" data-character-tab="chispa">Chispa</button>
+        </div>
+        <div id="characterManagement">
+          <div class="management-status"><strong id="managementHealth"></strong><span id="managementRule"></span></div>
+          <p id="managementMessage" role="status" aria-live="polite"></p>
+          <section id="characterSummaryPanel" class="management-layout" role="tabpanel" aria-labelledby="characterTabOverview" tabindex="0">
+            <section id="equipmentPanel" class="body-equipment" aria-labelledby="activeEquipmentTitle">
+              <h3 id="activeEquipmentTitle">Equipamiento activo</h3>
+              <p class="armor-summary">Armadura total <strong id="equipmentTotalDefense">0</strong><span>Del equipo: <b id="equipmentDefense">0</b></span></p>
+              <div id="equipmentList" class="paperdoll-grid"></div>
+              <p class="management-hint">Selecciona una parte del cuerpo para ver sus objetos compatibles.</p>
+            </section>
+            <div class="character-statistics">
+              <p id="characterIdentity" class="character-identity"></p>
+              <h3>Estadísticas primarias</h3><div id="primaryStats" class="primary-stats"></div>
+              <h3>Estadísticas secundarias</h3><dl id="secondaryStats" class="secondary-stats"></dl>
+              <p id="characterWeightStatus" class="management-hint"></p>
+            </div>
+          </section>
+          <section id="skillsPanel" class="hidden" role="tabpanel" aria-labelledby="characterTabClass" tabindex="0">
+            <h3 id="characterClassName">Sin clase</h3><p id="characterClassHelp" class="management-hint"></p>
+            <div id="characterClassChoices" class="class-choices"></div>
+            <p class="collection-summary">Puntos disponibles: <strong id="skillPoints">0</strong></p>
+            <div id="skillList" class="collection-list"></div>
+          </section>
+          <section id="inventoryPanel" class="battle-inventory hidden" role="tabpanel" aria-labelledby="characterTabInventory" tabindex="0">
+              <div id="inventoryTabs" class="inventory-tabs" role="group" aria-label="Filtrar inventario">
+                <button data-category="consumible" aria-pressed="true">Pociones</button>
+                <button data-category="arma" aria-pressed="false">Armas</button>
+                <button data-category="equipo" aria-pressed="false">Equipo</button>
+                <button data-category="todos" aria-pressed="false">Todos</button>
+              </div>
+              <div class="inventory-filter-summary"><span id="inventoryFilterLabel"></span><button id="clearEquipmentFilter" class="hidden">Quitar filtro de slot</button></div>
+              <div id="inventoryList" class="battle-item-grid" role="group" aria-label="Objetos disponibles"></div>
+          </section>
+          <section id="sparkPanel" class="spark-panel hidden" role="tabpanel" aria-labelledby="characterTabSpark" tabindex="0">
+            <span class="spark-symbol" aria-hidden="true">✦</span><h3 id="sparkTitle">Chispa</h3>
+            <p id="sparkStatus"></p><p id="sparkHelp" class="management-hint"></p>
+          </section>
+          <aside id="combatItemDetails" class="combat-item-details" aria-label="Detalles del objeto"><p>Enfoca o pasa el cursor sobre un objeto para ver sus detalles.</p></aside>
+        </div>
+      </section>
+    </div>
+    <div id="buttonTooltip" class="button-tooltip" role="tooltip" hidden></div>
+    <script src="/combat-inventory.js?v=23"></script>
+    <script src="/character-panel.js?v=23"></script>
+    <script src="/app.js?v=24"></script>
+  </body>
+</html>

@@ -359,7 +359,7 @@ function renderizarPanel(jugador) {
   elemento("attack").textContent = (
     `${jugador.ataque_minimo}–${jugador.ataque_maximo}`
   );
-  elemento("speed").textContent = jugador.velocidad;
+  elemento("speed").textContent = jugador.iniciativa;
   elemento("evasion").textContent = `${Math.round(jugador.evasion * 100)}%`;
   const penalizacionesPeso = [];
   if (jugador.penalizacion_evasion_peso > 0) {
@@ -367,8 +367,8 @@ function renderizarPanel(jugador) {
       `EVA -${Math.round(jugador.penalizacion_evasion_peso * 100)}%`,
     );
   }
-  if (jugador.penalizacion_velocidad_peso > 0) {
-    penalizacionesPeso.push(`VEL -${jugador.penalizacion_velocidad_peso}`);
+  if (jugador.modificador_movimiento_carga < 0) {
+    penalizacionesPeso.push(`MOV ${jugador.modificador_movimiento_carga}`);
   }
   elemento("weight").textContent = (
     `${jugador.peso_equipado}/${jugador.capacidad_peso}`
@@ -486,12 +486,7 @@ function descripcionObjeto(item) {
     detalles.push(`Tier ${item.tier}`);
     detalles.push(`Daño ${item.ataque[0]}–${item.ataque[1]}`);
     detalles.push(item.dos_manos ? "Dos manos" : "Una mano");
-    const atributo = item.estadistica_escalado === "destreza"
-      ? "Destreza"
-      : "Fuerza";
-    detalles.push(
-      `Escala con ${atributo}: +${Math.round(item.crecimiento_por_punto * 100)}% por punto`,
-    );
+    detalles.push(`Escala con Fuerza · coeficiente ${item.escalado_fuerza}`);
   } else if (item.clase === "secundario") {
     detalles.push(`Tier ${item.tier}`);
     detalles.push(`${Math.round(item.probabilidad_bloqueo * 100)}% de bloqueo`);
@@ -651,10 +646,10 @@ function agregarAccionesDeNivel() {
     },
   );
   crearBoton(
-    "+1 Constitución · vida y armadura",
+    "+1 Constitución · resistencia y regeneración",
     () => llamarApi("nivel", { estadistica: "constitucion" }),
     {
-      tooltip: "Otorga +10 de vida máxima; cada 2 puntos de CON aportan armadura.",
+      tooltip: "Mejora Estabilidad, Resistencia Física y Regeneración.",
     },
   );
 }

@@ -75,7 +75,7 @@ function describeCell(board, actors, point) {
   const actor = actors.find(a => board.posiciones[a.id]?.[0] === point[0] && board.posiciones[a.id]?.[1] === point[1]);
   const details = el("cellDetails"); details.replaceChildren(node("h3", `${coordinate(point)} · ${state.catalogo.terrenos[terrain].nombre}`), node("p", state.catalogo.terrenos[terrain].descripcion));
   if (actor) {
-    details.append(node("h3", actor.nombre), node("p", `${actor.hp}/${actor.hp_max} vida · Alcance ${actor.alcance_arma || 1} · Velocidad ${actor.velocidad}`));
+    details.append(node("h3", actor.nombre), node("p", `${actor.hp}/${actor.hp_max} vida · Alcance ${actor.alcance_arma || 1} · Iniciativa ${actor.iniciativa} · Movimiento ${actor.movimiento}`));
     details.append(node("p", `Estados: ${Object.keys(actor.estados || {}).join(", ") || "ninguno"}`));
   }
 }

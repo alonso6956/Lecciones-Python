@@ -66,7 +66,7 @@ def estados_activos_jugador(motor):
                 "tipo": "debuff",
                 "descripcion": (
                     f"Evasión -{round(penalizaciones['evasion'] * 100)}%; "
-                    f"Velocidad -{penalizaciones['velocidad']}."
+                    f"Movimiento {penalizaciones['movimiento']:+d}."
                 ),
                 "duracion": "Mientras mantengas este peso",
             }

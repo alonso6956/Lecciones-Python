@@ -87,17 +87,20 @@ function statValues(actor) {
     ["Fuerza", actor.fuerza], ["Destreza", actor.destreza], ["Constitución", actor.constitucion],
     ["Daño", `${actor.ataque_minimo}–${actor.ataque_maximo}`],
     ["Armadura", actor.armadura], ["Mitigación", percent(actor.mitigacion_armadura)],
-    ["Velocidad", actor.velocidad], ["Evasión", percent(actor.evasion)],
+    ["Iniciativa", actor.iniciativa], ["Evasión", percent(actor.evasion)],
     ["Arma", actor.arma], ["Secundario", actor.secundario || "Ninguno"],
     ["Bloqueo", percent(actor.probabilidad_bloqueo)],
     ["Daño bloqueado", percent(actor.porcentaje_dano_bloqueado)]];
   if (actor.critico_arma !== undefined) values.push(
+    ["Movimiento", actor.movimiento], ["Regeneración por turno", actor.regeneracion],
+    ["Impacto", actor.impacto], ["Estabilidad", actor.estabilidad],
+    ["Resistencia Física", actor.resistencia_fisica], ["Penetración total", Number(actor.penetracion.toFixed(1))],
     ["Crítico del arma", percent(actor.critico_arma)], ["Penetración", actor.penetracion_arma],
     ["Alcance", actor.alcance_arma], ["Durabilidad", actor.durabilidad_arma]);
   if (actor.energia_maxima !== undefined) values.push(
     ["Energía máxima", actor.energia_maxima],
     ["Peso / capacidad", `${actor.peso_equipado} / ${actor.capacidad_peso}`],
-    ["Penalización de velocidad", actor.penalizacion_velocidad_peso],
+    ["Carga", actor.carga_categoria], ["Movimiento por carga", actor.modificador_movimiento_carga],
     ["Penalización de evasión", percent(actor.penalizacion_evasion_peso)]);
   return values;
 }

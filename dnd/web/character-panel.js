@@ -37,11 +37,14 @@ function renderizarFichaPersonaje(jugador) {
     ["Energía", `${numero(jugador.energia)} / ${numero(jugador.energia_maxima)}`],
     ["Daño del personaje", `${numero(jugador.ataque_minimo)}–${numero(jugador.ataque_maximo)}`],
     ["Armadura", numero(jugador.armadura)], ["Mitigación por armadura", porcentajeFicha(jugador.mitigacion_armadura)],
-    ["Velocidad", numero(jugador.velocidad)], ["Evasión actual", porcentajeFicha(jugador.evasion)],
+    ["Iniciativa", numero(jugador.iniciativa)], ["Evasión actual", porcentajeFicha(jugador.evasion)],
+    ["Movimiento", jugador.movimiento], ["Regeneración por turno", jugador.regeneracion],
+    ["Impacto", jugador.impacto], ["Estabilidad", jugador.estabilidad],
+    ["Resistencia Física", jugador.resistencia_fisica], ["Penetración total", Number(jugador.penetracion.toFixed(1))],
     ["Crítico del arma", porcentajeFicha(jugador.critico_arma)], ["Penetración del arma", numero(jugador.penetracion_arma)],
     ["Probabilidad de bloqueo", porcentajeFicha(jugador.probabilidad_bloqueo)], ["Daño bloqueado", porcentajeFicha(jugador.porcentaje_dano_bloqueado)],
     ["Peso equipado / capacidad", `${numero(jugador.peso_equipado)} / ${numero(jugador.capacidad_peso)}`],
-    ["Velocidad del arma", `×${numero(jugador.velocidad_arma)}`], ["Alcance del arma", numero(jugador.alcance_arma)],
+    ["Alcance del arma", numero(jugador.alcance_arma)],
     ["Durabilidad del arma", numero(jugador.durabilidad_arma)], ["Puntos de estadística", numero(jugador.puntos_estadistica)],
   ];
   elemento("secondaryStats").replaceChildren(...secundarias.map(([nombre, valor]) => {
@@ -49,7 +52,7 @@ function renderizarFichaPersonaje(jugador) {
   }));
   const penalizaciones = [];
   if (jugador.penalizacion_evasion_peso > 0) penalizaciones.push(`evasión −${porcentajeFicha(jugador.penalizacion_evasion_peso)}`);
-  if (jugador.penalizacion_velocidad_peso > 0) penalizaciones.push(`velocidad −${numero(jugador.penalizacion_velocidad_peso)}`);
+  if (jugador.modificador_movimiento_carga < 0) penalizaciones.push(`movimiento ${jugador.modificador_movimiento_carga}`);
   elemento("characterWeightStatus").textContent = penalizaciones.length ? `Penalización por peso: ${penalizaciones.join(" · ")}.` : "Sin penalizaciones por peso. Las estadísticas incluyen las bonificaciones aplicadas por el motor.";
   elemento("characterClassName").textContent = jugador.clase_nombre || "Sin clase";
   elemento("characterClassHelp").textContent = jugador.clase ? "Consulta las habilidades de tu clase y utiliza tus puntos para aprenderlas o mejorarlas entre combates." : jugador.clase_pendiente ? "Puedes elegir tu clase entre combates. La elección es permanente." : "La elección de clase se desbloquea al nivel 10.";

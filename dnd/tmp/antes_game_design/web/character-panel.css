@@ -1,0 +1,28 @@
+.character-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #665134; padding-bottom: 12px; }
+.character-tabs button { padding: 10px 8px; font-size: .8rem; box-shadow: none; }
+.character-tabs button[aria-selected=true] { background: linear-gradient(#483821, #251d13); color: #f3e5ab; border-color: #ba975c; }
+.character-panel [role=tabpanel]:focus-visible { outline: 2px solid #ba975c; outline-offset: 4px; }
+.character-statistics { min-width: 0; }
+.character-identity { margin: 0 0 16px; color: #d4bc86; font: .85rem/1.5 system-ui, sans-serif; }
+.primary-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
+.primary-stat { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 7px; border: 1px solid #665134; background: radial-gradient(ellipse at top, #302a20, #101117); border-radius: 3px; text-align: center; }
+.primary-stat > span { font-size: .75rem; }
+.primary-stat > strong { font: bold 1.6rem/1.2 var(--font-game); color: #f3e5ab; }
+.primary-stat > small { font: .65rem/1.4 system-ui, sans-serif; color: #c1b6a1; }
+.secondary-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 16px; margin: 0; font: .78rem/1.5 system-ui, sans-serif; }
+.secondary-stats > div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #34302a; }
+.secondary-stats dt { color: #c1b6a1; }
+.secondary-stats dd { margin: 0; color: #eee3cf; text-align: right; font-weight: 600; }
+.character-panel #skillsPanel { margin-top: 18px; }
+.class-choices { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.class-choices:empty { display: none; }
+.character-panel #inventoryPanel { margin-top: 16px; }
+.character-panel .battle-item-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: 390px; }
+.character-panel .combat-item-details { max-height: 140px; }
+.spark-panel { margin-top: 16px; padding: 36px 20px; min-height: 260px; border: 1px solid #41404f; background: radial-gradient(ellipse at center, #252331, #101117); text-align: center; }
+.spark-panel .spark-symbol { display: block; margin-bottom: 16px; font-size: 3rem; line-height: 1; color: #7f7b93; }
+.spark-panel.awakened .spark-symbol { color: #dbbaff; text-shadow: 0 0 28px #ac75ed; }
+.spark-panel > p { font: .9rem/1.7 system-ui, sans-serif; }
+@media (max-width: 800px) { .character-panel .battle-item-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .secondary-stats { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .character-tabs { gap: 5px; } .character-tabs button { font-size: .65rem; padding: 8px 4px; } .primary-stats { gap: 6px; } .character-panel .management-layout { display: flex; flex-direction: column-reverse; } .secondary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 10px; } }
+@media (max-width: 380px) { .character-panel .battle-item-grid, .secondary-stats { grid-template-columns: 1fr; } }

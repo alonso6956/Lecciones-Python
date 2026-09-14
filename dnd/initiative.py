@@ -2,18 +2,8 @@
 
 
 def getActionPoints(velocidad, velocidad_rival, acumulador=0):
-    """Devuelve acciones y remanente de iniciativa para el siguiente ciclo.
-
-    Se suman los puntos de ventaja en cada ciclo y cada 6 puntos acumulados
-    generan una acción extra. Así, +2 Velocidad sigue dando una acción cada
-    tres ciclos, mientras ventajas grandes actúan desde el primer ciclo en vez
-    de quedar retenidas hasta un burst artificial en el turno global 3.
-    """
-    if acumulador < 0:
-        raise ValueError("El acumulador de velocidad no puede ser negativo.")
-    ventaja = max(0, velocidad - velocidad_rival)
-    acciones_extra, remanente = divmod(acumulador + ventaja, 6)
-    return 1 + acciones_extra, remanente
+    """Una acción por ciclo; la iniciativa solo determina el orden."""
+    return 1, 0
 
 
 def jugador_rompe_prioridad_rapida(velocidad_jugador, velocidad_enemigo):

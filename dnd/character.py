@@ -11,19 +11,22 @@ from progression import CLASES, comprobar_hitos, habilidades_de_clase
 from pasiva_factory import pasiva_factory
 
 
-class Personaje:
+from derived_stats import EstadisticasDerivadas, salud_por_nivel, bonus
+
+
+class Personaje(EstadisticasDerivadas):
     """Estadísticas y fórmulas propias del personaje, sin datos de equipo."""
 
     SALUD_BASE = 50
     DANO_BASE = 2
-    DEFENSA_BASE = 10
+    DEFENSA_BASE = 0
     VELOCIDAD_BASE = 10
-    ESCALADO_CONSTITUCION = 0.20
+    ESCALADO_CONSTITUCION = 0.0
     ESCALADO_VIDA_NIVEL = 0.10  # 10% de SALUD_BASE: +5 de vida por nivel ganado.
     ENERGIA_BASE = 3
     NIVEL_MAXIMO = 30
     CAPACIDAD_PESO_BASE = 8
-    CAPACIDAD_PESO_POR_CONSTITUCION = 4
+    CAPACIDAD_PESO_POR_FUERZA = 2
 
     def __init__(self, nombre, arma, stats):
         self.id = uuid4().hex
@@ -73,16 +76,19 @@ class Personaje:
         return max(0, estadistica - 1) * porcentaje
 
     def calcular_salud_maxima(self):
-        bonus = self._bonus_porcentual(
-            self.estadistica_total("constitucion"),
-            self.ESCALADO_CONSTITUCION,
-        )
-        vida_por_nivel = self.SALUD_BASE * self.ESCALADO_VIDA_NIVEL * (self.nivel - 1)
-        return round(self.SALUD_BASE * (1 + bonus) + vida_por_nivel)
+        return salud_por_nivel(self.nivel, bonus(self, "salud"), bonus(self, "salud_pct"))
+
+    @property
+    def hp(self):
+        return self._hp
+
+    @hp.setter
+    def hp(self, valor):
+        self._hp = max(0, min(self.salud_maxima, valor))
 
     @property
     def energia_maxima(self):
-        return self.ENERGIA_BASE + self.nivel // 10
+        return self.ENERGIA_BASE + self.nivel // 50
 
     def estadistica_total(self, estadistica):
         bonus = self.inventario.bonificaciones_atributos().get(estadistica, 0)
@@ -101,22 +107,15 @@ class Personaje:
         return self.estadistica_total("constitucion")
 
     def calcular_dano_base(self, arma=None):
-        factor = calcular_factor_arma(
-            arma or self.arma,
-            self.fuerza_total,
-            self.destreza_total,
-        )
-        return round(self.DANO_BASE * factor)
+        return self.DANO_BASE
 
     def calcular_defensa_base(self, arma=None):
-        """CON aporta 1 de defensa por cada 2 puntos, sin escalado ofensivo."""
-        return self.DEFENSA_BASE + self.constitucion_total // 2
+        """La protección innata no procede de Constitución."""
+        return bonus(self, "armadura")
 
     @property
     def velocidad(self):
-        velocidad = calcular_velocidad(self.VELOCIDAD_BASE, self.destreza_total)
-        velocidad = round(velocidad * self.inventario.arma_equipada.velocidad)
-        return max(0, velocidad - self.penalizaciones_peso["velocidad"])
+        return self.iniciativa  # Alias para consumidores anteriores.
 
     @property
     def evasion(self):
@@ -125,7 +124,7 @@ class Personaje:
             calcular_evasion(self.destreza_total)
             + self.bonus_pasivo_habilidad("evasion"),
         )
-        return max(0.0, evasion - self.penalizaciones_peso["evasion"])
+        return max(0.0, evasion * self.penalizaciones_peso["factor_evasion"])
 
     @property
     def peso_equipado(self):
@@ -135,8 +134,9 @@ class Personaje:
     def capacidad_peso(self):
         return (
             self.CAPACIDAD_PESO_BASE
-            + max(0, self.constitucion_total - 1)
-            * self.CAPACIDAD_PESO_POR_CONSTITUCION
+            + max(0, self.fuerza_total - 1)
+            * self.CAPACIDAD_PESO_POR_FUERZA
+            + bonus(self, "capacidad_carga")
         )
 
     @property
@@ -161,7 +161,7 @@ class Personaje:
 
     def curar(self, cantidad):
         salud_anterior = self.hp
-        self.hp = min(self.salud_maxima, self.hp + cantidad)
+        self.hp = min(self.salud_maxima, self.hp + max(0, cantidad))
         return self.hp - salud_anterior
 
     def asignar_atributo(self, estadistica):
@@ -174,8 +174,7 @@ class Personaje:
         setattr(self, estadistica, getattr(self, estadistica) + 1)
         self.puntos_estadistica -= 1
         self.salud_maxima = self.calcular_salud_maxima()
-        if estadistica == "constitucion":
-            self.hp += self.salud_maxima - salud_anterior
+        self.hp = min(self.hp, self.salud_maxima)
 
     def subir_nivel(self, estadistica=None):
         if self.nivel >= self.NIVEL_MAXIMO:

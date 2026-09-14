@@ -4,7 +4,7 @@ import random
 from dataclasses import asdict
 
 from combat_formulas import aplicar_mitigacion_dano
-from combat_stats import estadisticas_combate, tirar_dano
+from combat_stats import estadisticas_combate, tirar_dano, armas_ataque
 from weapon_effects import armadura_tras_penetracion, modificar_golpe, activar_afijo
 from tactical_ai import AIController
 from tactical_diagnostics import CombatLog, DiagnosticEngine
@@ -72,7 +72,7 @@ class CombatResolver:
             self._evento("sin_alcance", actor_id=actor.id, objetivo_id=objetivo.id, fuente_tag="inmovilizado")
             return False
         ruta = self._ruta(actor, objetivo, alcance)
-        presupuesto = max(2, min(4, int(actor.velocidad / 4)))
+        presupuesto = actor.modelo.movimiento
         for punto in ruta or []:
             coste = campo.coste(punto)
             if coste > presupuesto:
@@ -133,9 +133,9 @@ class CombatResolver:
     def _evento(self, tipo, **datos):
         return self.log.registrar(self.ronda, tipo, **datos)
 
-    def _golpe(self, actor, objetivo, multiplicador=1):
+    def _golpe(self, actor, objetivo, multiplicador=1, arma=None):
         """Tirada, evasión, crítico y bloqueo con las estadísticas de Dungeon."""
-        bruto = tirar_dano(actor.modelo, self.rng) * multiplicador
+        bruto = tirar_dano(actor.modelo, self.rng, arma) * multiplicador
         if self.tablero:
             factor, razones = self.tablero.multiplicador(actor.id, objetivo.id, {a.id for a in self._vivos()})
             bruto *= factor
@@ -155,11 +155,11 @@ class CombatResolver:
         if pasiva and pasiva.efecto == "critico" and self.rng.random() < pasiva.probabilidad:
             bruto = pasiva.calcular_critico(bruto)
             self._evento("critico", actor_id=actor.id, objetivo_id=objetivo.id)
-        bruto, critico_arma = modificar_golpe(actor.modelo, objetivo.modelo, bruto, self.rng)
+        bruto, critico_arma = modificar_golpe(actor.modelo, objetivo.modelo, bruto, self.rng, arma)
         if critico_arma:
             self._evento("critico", actor_id=actor.id, objetivo_id=objetivo.id)
         return max(1, round(aplicar_mitigacion_dano(
-            bruto, bloqueo_escudo=bloqueo, armadura=0 if ignora else armadura_tras_penetracion(actor.modelo, objetivo.defensa))))
+            bruto, bloqueo_escudo=bloqueo, armadura=0 if ignora else armadura_tras_penetracion(actor.modelo, objetivo.defensa, arma))))
 
     def _dano(self, actor, objetivo, cantidad, tag):
         if not objetivo.vivo:
@@ -264,7 +264,7 @@ class CombatResolver:
             self._evento("retirada_bloqueada", actor_id=self.jefe.id)
             return
         ocupados = {campo.posiciones[a.id] for a in enemigos}
-        presupuesto = max(2, min(4, int(self.jefe.velocidad / 4)))
+        presupuesto = self.jefe.modelo.movimiento
         def seguridad(p):
             return min(distancia(p, q) for q in ocupados)
         while presupuesto:
@@ -361,25 +361,28 @@ class CombatResolver:
             actor.cooldowns["unica"] = 3
         if rival.estados.get("vulnerable"):
             multiplicador *= 1.15
-        dano = self._golpe(actor, rival, multiplicador)
-        if not dano:
-            return
-        if self.escudo > 0:
-            factor = 4 if accion.tipo == "romper" else arma["ruptura"]
-            factor *= 1.25 if actor.seleccion.build == "adaptacion" else 1
-            ruptura = round(min(self.escudo, dano * factor), 2)
-            self.escudo = round(self.escudo - ruptura, 2)
-            self._evento("dano_escudo", actor_id=actor.id, objetivo_id=rival.id,
-                         fuente_tag="ruptura", cantidad=ruptura, metadata={"escudo_restante": self.escudo})
-            if self.escudo <= 0:
-                self.escudo_vence = None
-                rival.estados["vulnerable"] = {"vence": self.ronda + 1}
-                self._evento("escudo_roto", actor_id=actor.id, objetivo_id=rival.id, fuente_tag="ruptura")
-        else:
-            self._dano(actor, rival, dano, "fisico")
-            efecto = activar_afijo(actor.modelo, rival.modelo, self.rng)
-            if efecto:
-                rival.modelo.efectos_arma[efecto]["actor_id"] = actor.id
+        golpes = armas_ataque(actor.modelo) if accion.tipo == "ataque" else [armas_ataque(actor.modelo)[0]]
+        for arma_golpe, factor_mano in golpes:
+            if not rival.vivo or self.resultado:
+                break
+            dano = self._golpe(actor, rival, multiplicador * factor_mano, arma_golpe)
+            if not dano:
+                continue
+            if self.escudo > 0:
+                factor = 4 if accion.tipo == "romper" else ARMAS.get(arma_golpe.id, arma)["ruptura"]
+                factor *= 1.25 if actor.seleccion.build == "adaptacion" else 1
+                ruptura = round(min(self.escudo, dano * factor), 2)
+                self.escudo = round(self.escudo - ruptura, 2)
+                self._evento("dano_escudo", actor_id=actor.id, objetivo_id=rival.id,
+                             fuente_tag="ruptura", cantidad=ruptura, metadata={"escudo_restante": self.escudo})
+                if self.escudo <= 0:
+                    self.escudo_vence = None
+                    rival.estados["vulnerable"] = {"vence": self.ronda + 1}
+                    self._evento("escudo_roto", actor_id=actor.id, objetivo_id=rival.id, fuente_tag="ruptura")
+            else:
+                self._dano(actor, rival, dano, "fisico")
+                for efecto in activar_afijo(actor.modelo, rival.modelo, self.rng, arma_golpe):
+                    rival.modelo.efectos_arma[efecto]["actor_id"] = actor.id
 
     def paso(self):
         if self.resultado:
@@ -388,7 +391,7 @@ class CombatResolver:
         self.vistas = []
         self.ronda += 1
         vivos = [a for a in self.party + self.enemigos if a.vivo]
-        iniciativas = {a.id: a.velocidad + self.rng.uniform(0, a.velocidad * 0.10) for a in vivos}
+        iniciativas = {a.id: a.modelo.iniciativa for a in vivos}
         orden = sorted(vivos, key=lambda a: iniciativas[a.id], reverse=True)
         self._evento("iniciativa", metadata={"orden": [a.id for a in orden], "valores": iniciativas})
         for actor in orden:
@@ -401,6 +404,10 @@ class CombatResolver:
                 break
             if not actor.vivo:
                 continue
+            recuperado = actor.modelo.regenerar()
+            if recuperado:
+                self._evento("curacion", actor_id=actor.id, objetivo_id=actor.id,
+                    fuente_tag="regeneracion", cantidad=recuperado)
             if actor in self.enemigos:
                 if self.encuentro.grupo:
                     self._accion_enemigo(actor)
