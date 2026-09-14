@@ -44,7 +44,7 @@ function description(p) {
   if (p.ataque) details.push(`Daño ${p.ataque.join("–")}`, `Escala con ${p.estadistica_escalado}`, p.dos_manos ? "Dos manos" : "Una mano");
   if (p.defensa !== undefined) details.push(`Armadura ${p.defensa}`);
   if (p.salud !== undefined) details.push(`Recupera ${p.salud} de vida`);
-  if (p.probabilidad_bloqueo !== undefined) details.push(`Bloqueo ${Math.round(p.probabilidad_bloqueo * 100)}%`, `Reduce ${Math.round(p.porcentaje_dano_bloqueado * 100)}% del daño bloqueado`);
+  if (p.absorcion_pasiva !== undefined) details.push(`Absorción pasiva ${Math.round(p.absorcion_pasiva * 100)}%`, `Bloqueo activo ${Math.round(p.bloqueo_activo * 100)}%`);
   const requirements = Object.entries(p.requisitos || {}).map(([k,v]) => `${k} ${v}`);
   if (requirements.length) details.push(`Requiere ${requirements.join(", ")}`);
   if (p.cumple_requisitos === false) details.push("Puedes comprarlo, pero aún no cumples los requisitos para equiparlo");

@@ -42,10 +42,10 @@ function renderizarFichaPersonaje(jugador) {
     ["Impacto", jugador.impacto], ["Estabilidad", jugador.estabilidad],
     ["Resistencia Física", jugador.resistencia_fisica], ["Penetración total", Number(jugador.penetracion.toFixed(1))],
     ["Crítico del arma", porcentajeFicha(jugador.critico_arma)], ["Penetración del arma", numero(jugador.penetracion_arma)],
-    ["Probabilidad de bloqueo", porcentajeFicha(jugador.probabilidad_bloqueo)], ["Daño bloqueado", porcentajeFicha(jugador.porcentaje_dano_bloqueado)],
+    ["Absorción pasiva", porcentajeFicha(jugador.absorcion_pasiva)], ["Bloqueo activo", porcentajeFicha(jugador.bloqueo_activo)],
     ["Peso equipado / capacidad", `${numero(jugador.peso_equipado)} / ${numero(jugador.capacidad_peso)}`],
     ["Alcance del arma", numero(jugador.alcance_arma)],
-    ["Durabilidad del arma", numero(jugador.durabilidad_arma)], ["Puntos de estadística", numero(jugador.puntos_estadistica)],
+    ["Durabilidad del arma", numero(jugador.durabilidad_arma)], ["Durabilidad del escudo", `${numero(jugador.durabilidad_escudo)} / ${numero(jugador.durabilidad_maxima_escudo)}`], ["Puntos de estadística", numero(jugador.puntos_estadistica)],
   ];
   elemento("secondaryStats").replaceChildren(...secundarias.map(([nombre, valor]) => {
     const fila = nodoGestion("div"); fila.append(nodoGestion("dt", nombre), nodoGestion("dd", valor)); return fila;

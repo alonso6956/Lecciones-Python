@@ -15,6 +15,20 @@ class ItemContainer:
         self._cantidades = {}
         self._instancias = {}
         self._custom = {}
+        self._durabilidades = {}
+
+    def estado_durabilidad(self, instance_id):
+        item = item_factory.crear(self._instancias[instance_id])
+        actual = self._durabilidades.get(instance_id, item.durabilidad)
+        return {"durabilidad_actual": actual, "durabilidad_maxima": item.durabilidad,
+                "roto": actual <= 0}
+
+    def establecer_durabilidad(self, instance_id, valor):
+        import math
+        maxima = self.estado_durabilidad(instance_id)["durabilidad_maxima"]
+        if type(valor) not in (int, float) or not math.isfinite(valor) or not 0 <= valor <= maxima:
+            raise ValueError("Durabilidad inválida.")
+        self._durabilidades[instance_id] = valor
 
     @staticmethod
     def _cantidad_valida(cantidad):
@@ -65,11 +79,14 @@ class ItemContainer:
             raise ValueError("No hay suficientes objetos en el origen.")
         movido = {"instance_id": instance_id, "item_id": item.id, "cantidad": cantidad,
                   "custom_data": deepcopy(self._custom.get(item.id))}
+        if self._unico(item):
+            movido.update(self.estado_durabilidad(instance_id))
         self._cantidades[item.id] -= cantidad
         if not self._cantidades[item.id]:
             del self._cantidades[item.id]
             self._custom.pop(item.id, None)
         self._instancias.pop(instance_id, None)
+        self._durabilidades.pop(instance_id, None)
         return movido
 
     def insertar(self, entrada):
@@ -86,10 +103,12 @@ class ItemContainer:
             for nuevo in set(self._instancias) - previos:
                 del self._instancias[nuevo]
             self._instancias[entrada["instance_id"]] = item_id
+            self.establecer_durabilidad(entrada["instance_id"], entrada.get("durabilidad_actual", item.durabilidad))
 
     def _serializar_contenedor(self):
         return {"items": dict(self._cantidades), "instancias": dict(self._instancias),
-                "custom": deepcopy(self._custom), "capacidad": self.capacidad}
+                "custom": deepcopy(self._custom), "capacidad": self.capacidad,
+                "durabilidades": dict(self._durabilidades)}
 
     def _restaurar_identidades(self, datos):
         if "instancias" in datos:
@@ -105,6 +124,11 @@ class ItemContainer:
             if reales != esperadas:
                 raise ValueError("Las instancias no coinciden con el inventario.")
             self._instancias = dict(instancias)
+        durabilidades = datos.get("durabilidades", {})
+        if not isinstance(durabilidades, dict) or any(k not in self._instancias for k in durabilidades):
+            raise ValueError("Identidades de durabilidad inválidas.")
+        for clave, valor in durabilidades.items():
+            self.establecer_durabilidad(clave, valor)
 
     def entradas(self):
         filas = []
@@ -113,6 +137,7 @@ class ItemContainer:
             ids = [k for k, v in self._instancias.items() if v == item_id] if self._unico(item) else [item_id]
             for instance_id in ids:
                 filas.append({"instance_id": instance_id, "item_id": item_id,
+                    **(self.estado_durabilidad(instance_id) if self._unico(item) else {}),
                     "nombre": item.nombre, "categoria": type(item).__name__.lower(),
                     "cantidad": 1 if self._unico(item) else cantidad,
                     "custom_data": deepcopy(self._custom.get(item_id)),

@@ -228,8 +228,12 @@ class FabricacionTests(unittest.TestCase):
                         for calidad in CALIDADES:
                             a = _disenar_arma(tier, tipo, material, None, perfil, calidad)
                             if "ataque" in a:
+                                self.assertGreaterEqual(a["ataque"][0], 1)
+                                self.assertLess(a["ataque"][0], a["ataque"][1])
                                 self.assertLessEqual(a["ataque"][1], math.floor(DANO_TIER[tier][1] * MULTIPLICADOR_ARMA[tipo]))
                                 self.assertLessEqual(preview["ataque"]["minimo"][0], a["ataque"][0])
+                                self.assertGreaterEqual(preview["ataque"]["minimo"][1], a["ataque"][0])
+                                self.assertLessEqual(preview["ataque"]["maximo"][0], a["ataque"][1])
                                 self.assertGreaterEqual(preview["ataque"]["maximo"][1], a["ataque"][1])
                             if "slot" in a:
                                 self.assertLessEqual(a["defensa"], repartir_armadura(ARMADURA_TIER[tier][1])[a["slot"]])
@@ -258,6 +262,24 @@ class FabricacionTests(unittest.TestCase):
         a.update(id="craft_" + uuid4().hex, ataque=[50, 100])
         with self.assertRaises(ValueError):
             item_factory.registrar_instancia(a)
+
+    def test_arma_fabricada_conserva_rango_y_tira_danos_distintos(self):
+        p = personaje()
+        p.oro = 1000
+        p.inventario.recolectar("material_hierro", 10)
+        a = fabricar(p, "espada", "hierro", rng=random.Random(7))
+        p.inventario.equipar(a["id"], p)
+        restaurado = deserializar_personaje(serializar_personaje(p))
+        self.assertEqual(list(restaurado.inventario.arma_equipada.ataque), a["ataque"])
+
+        class Extremo:
+            def __init__(self, maximo):
+                self.maximo = maximo
+
+            def randint(self, minimo, maximo):
+                return maximo if self.maximo else minimo
+
+        self.assertLess(tirar_dano(restaurado, Extremo(False)), tirar_dano(restaurado, Extremo(True)))
 
     def test_taller_guardado_y_boveda(self):
         with tempfile.TemporaryDirectory() as carpeta:

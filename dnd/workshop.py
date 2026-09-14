@@ -8,6 +8,7 @@ from character_roster import deserializar_personaje
 from crafting import crafting_data, fabricar, previsualizar_arma, progreso_crafteo
 from item_container import SharedVault
 from item_factory import item_factory
+from equipment_repair import cotizar_reparacion, reparar
 
 
 class Workshop:
@@ -21,6 +22,9 @@ class Workshop:
         entradas = contenedor.entradas()
         for entrada in entradas:
             entrada["detalles"] = asdict(item_factory.crear(entrada["item_id"]))
+            if "durabilidad_actual" in entrada:
+                entrada["detalles"].update(contenedor.estado_durabilidad(entrada["instance_id"]))
+                entrada["reparacion"] = cotizar_reparacion(contenedor, entrada["instance_id"])
             entrada["transferible"] = (not entrada["equipado"]
                 and entrada["item_id"] not in crafting_data()["vault"]["bloqueados"]
                 and item_factory.permite_vault(entrada["item_id"]))
@@ -81,6 +85,8 @@ class Workshop:
                 destino.insertar(movido)
             elif accion == "fabricar":
                 resultado = fabricar(personaje, datos.get("tipo"), datos.get("material"), datos.get("componente"), vault=vault)
+            elif accion == "reparar":
+                reparar(personaje, datos.get("instance_id"), vault)
             elif accion == "nombrar":
                 item_id, nombre = datos.get("item_id"), datos.get("nombre")
                 if not isinstance(item_id, str) or item_id not in personaje.inventario._custom:

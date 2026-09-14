@@ -17,12 +17,14 @@ def calculateTurnOrder(
     ataque_enemigo_rapido=False,
     ultimo_actor=None,
     acumuladores=None,
+    ataque_enemigo_poderoso=False,
 ):
     """Construye una cola sin remanentes entre ciclos de iniciativa.
 
     Un ataque rápido conserva prioridad salvo en empates ya iniciados: cuando
     las velocidades coinciden, ``ultimo_actor`` fuerza alternancia estricta y
     evita que una cola termine y la siguiente empiece con el mismo actor.
+    El poderoso es la excepción explícita: cede la primera acción al jugador.
     """
     acumuladores = acumuladores or {"jugador": 0, "enemigo": 0}
     acciones_jugador, resto_jugador = getActionPoints(
@@ -43,6 +45,8 @@ def calculateTurnOrder(
         "jugador": resto_jugador,
         "enemigo": resto_enemigo,
     }
+    if ataque_enemigo_poderoso:
+        return ["jugador", "enemigo"], nuevos_acumuladores
 
     # Con velocidades idénticas no existen puntos extra. La primera posición
     # se asigna al opuesto del último actor para impedir E,E entre dos colas.

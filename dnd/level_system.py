@@ -2,7 +2,7 @@ import math
 
 
 class SistemaNiveles:
-    def __init__(self, exp_por_nivel=None, nivel_maximo=30):
+    def __init__(self, exp_por_nivel=None, nivel_maximo=999):
         self.exp_por_nivel = exp_por_nivel
         self.nivel_maximo = nivel_maximo
 

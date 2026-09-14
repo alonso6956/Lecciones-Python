@@ -42,7 +42,7 @@ function resumenInventario(item) {
   if (item.clase === "consumible") return `Recupera ${item.valor} de vida`;
   if (item.clase === "arma") return `Daño ${item.ataque.join("–")} · Tier ${item.tier}${item.dos_manos ? " · 2 manos" : ""}`;
   if (item.clase === "armadura") return `Armadura +${item.defensa}`;
-  if (item.clase === "secundario") return `Bloqueo ${Math.round(item.probabilidad_bloqueo * 100)}%`;
+  if (item.clase === "secundario") return `Absorción pasiva ${Math.round(item.absorcion_pasiva * 100)}%`;
   return "Componente de crafteo";
 }
 function mostrarDetalleInventario(item) {

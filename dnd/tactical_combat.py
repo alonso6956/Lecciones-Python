@@ -133,7 +133,7 @@ class CombatResolver:
     def _evento(self, tipo, **datos):
         return self.log.registrar(self.ronda, tipo, **datos)
 
-    def _golpe(self, actor, objetivo, multiplicador=1, arma=None):
+    def _golpe(self, actor, objetivo, multiplicador=1, arma=None, *, rapido=False, ataque=None, poderoso=False):
         """Tirada, evasión, crítico y bloqueo con las estadísticas de Dungeon."""
         bruto = tirar_dano(actor.modelo, self.rng, arma) * multiplicador
         if self.tablero:
@@ -148,18 +148,24 @@ class CombatResolver:
             return 0
         pasiva = getattr(actor.modelo, "pasiva_clase", None)
         ignora = bool(pasiva and pasiva.efecto == "ignorar_defensa" and pasiva.ignora_defensa(self.rng.random()))
-        bloqueo = 0
-        if not ignora and datos["probabilidad_bloqueo"] and self.rng.random() < datos["probabilidad_bloqueo"]:
-            bloqueo = datos["porcentaje_dano_bloqueado"]
-            self._evento("bloqueo", actor_id=objetivo.id, objetivo_id=actor.id)
         if pasiva and pasiva.efecto == "critico" and self.rng.random() < pasiva.probabilidad:
             bruto = pasiva.calcular_critico(bruto)
             self._evento("critico", actor_id=actor.id, objetivo_id=objetivo.id)
         bruto, critico_arma = modificar_golpe(actor.modelo, objetivo.modelo, bruto, self.rng, arma)
         if critico_arma:
             self._evento("critico", actor_id=actor.id, objetivo_id=objetivo.id)
-        return max(1, round(aplicar_mitigacion_dano(
-            bruto, bloqueo_escudo=bloqueo, armadura=0 if ignora else armadura_tras_penetracion(actor.modelo, objetivo.defensa, arma))))
+        from defense_system import resolver_defensa
+        defensa = resolver_defensa(actor.modelo, objetivo.modelo, bruto, arma=arma, ignora=ignora,
+            defendiendo=bool(objetivo.estados.get("defendiendo")), rapido=rapido, poderoso=poderoso, ataque=ataque, rng=self.rng)
+        if defensa["ruptura"]:
+            objetivo.estados.pop("defendiendo", None)
+        if defensa["absorbido"]:
+            self._evento("bloqueo", actor_id=objetivo.id, objetivo_id=actor.id,
+                         cantidad=defensa["absorbido"])
+        if defensa["pierde_accion"]:
+            actor.estados["accion_perdida"] = {"vence": self.ronda + 2}
+        return max(0, round(aplicar_mitigacion_dano(
+            defensa["dano"], armadura=0 if ignora else armadura_tras_penetracion(actor.modelo, objetivo.defensa, arma))))
 
     def _dano(self, actor, objetivo, cantidad, tag):
         if not objetivo.vivo:
@@ -408,8 +414,14 @@ class CombatResolver:
             if recuperado:
                 self._evento("curacion", actor_id=actor.id, objetivo_id=actor.id,
                     fuente_tag="regeneracion", cantidad=recuperado)
+            actor.estados.pop("defendiendo", None)
+            pierde_accion = actor.estados.pop("accion_perdida", None)
+            if pierde_accion:
+                self._evento("turno_omitido", actor_id=actor.id, fuente_tag="defensa_activa")
             if actor in self.enemigos:
-                if self.encuentro.grupo:
+                if pierde_accion:
+                    pass
+                elif self.encuentro.grupo:
                     self._accion_enemigo(actor)
                 else:
                     self._accion_jefe()
@@ -422,7 +434,7 @@ class CombatResolver:
                             del actor.modelo.efectos_arma[efecto]
                         if self.resultado:
                             break
-            else:
+            elif not pierde_accion:
                 self._accion_aliado(actor)
             self._vista(actor)
         if not self.resultado and self.escudo > 0 and self.ronda >= self.escudo_vence:
@@ -434,6 +446,9 @@ class CombatResolver:
             for aliado in self.party:
                 if aliado.vivo:
                     bruto = self.encuentro.castigo * (0.65 if aliado.estados.get("muralla") else 1)
+                    from defense_system import resolver_defensa
+                    defensa = resolver_defensa(self.jefe.modelo, aliado.modelo, bruto)
+                    bruto = defensa["dano"]
                     dano = aplicar_mitigacion_dano(bruto, armadura=aliado.defensa)
                     self._dano(self.jefe, aliado, dano, "escudo_no_roto")
         for actor in self.party + self.enemigos:

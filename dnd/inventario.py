@@ -37,12 +37,28 @@ class Inventario(ItemContainer):
     @property
     def arma_equipada(self):
         item_id = self._equipamiento["mano_principal"]
-        return item_factory.crear(item_id) if item_id else None
+        return self._objeto_funcional("mano_principal", item_id)
 
     @property
     def secundario_equipado(self):
         item_id = self._equipamiento["mano_secundaria"]
-        return item_factory.crear(item_id) if item_id else None
+        return self._objeto_funcional("mano_secundaria", item_id)
+
+    def _objeto_funcional(self, slot, item_id):
+        if not item_id:
+            return None
+        item = item_factory.crear(item_id)
+        from defense_system import identidad_equipada
+        identidad = identidad_equipada(self, slot)
+        if identidad and self.estado_durabilidad(identidad)["roto"]:
+            from dataclasses import replace
+            if isinstance(item, Arma):
+                return replace(item, ataque=(0, 0), critico=0, penetracion=0, impacto=0,
+                               precision=0, afijo={}, afijos=(), bonus_sobrenatural=0, escalado_fuerza=0)
+            if isinstance(item, Secundario):
+                return replace(item, defensa=0, bonificaciones={}, porcentaje_dano_bloqueado=0,
+                               probabilidad_bloqueo=0, absorcion_pasiva=0, bloqueo_activo=0)
+        return item
 
     @property
     def equipamiento(self):
@@ -136,22 +152,18 @@ class Inventario(ItemContainer):
         )
 
     def defensa_equipo(self):
-        total = 0
-        for item_id in self._equipamiento.values():
-            if not item_id:
-                continue
-            item = item_factory.crear(item_id)
-            total += getattr(item, "defensa", 0)
-        return total
+        return self.armadura_equipo()
 
     def armadura_equipo(self):
         """Suma solo la protección de las piezas de armadura equipadas."""
         total = 0
-        for item_id in self._equipamiento.values():
+        for slot, item_id in self._equipamiento.items():
             if not item_id:
                 continue
             item = item_factory.crear(item_id)
-            if isinstance(item, (Armadura, Secundario)):
+            from defense_system import identidad_equipada
+            funcional = not self.estado_durabilidad(identidad_equipada(self, slot))["roto"]
+            if isinstance(item, (Armadura, Secundario)) and funcional:
                 total += item.defensa
         return total
 
@@ -164,10 +176,13 @@ class Inventario(ItemContainer):
 
     def bonificaciones_atributos(self):
         total = {"fuerza": 0, "destreza": 0, "constitucion": 0}
-        for item_id in self._equipamiento.values():
+        for slot, item_id in self._equipamiento.items():
             if not item_id:
                 continue
             item = item_factory.crear(item_id)
+            from defense_system import identidad_equipada
+            if self.estado_durabilidad(identidad_equipada(self, slot))["roto"]:
+                continue
             for estadistica, valor in getattr(item, "bonificaciones", {}).items():
                 total[estadistica] = total.get(estadistica, 0) + valor
         return total
@@ -253,6 +268,10 @@ class Inventario(ItemContainer):
                         dos_manos=item.dos_manos,
                     )
                 resultado[slot] = datos
+                from defense_system import identidad_equipada
+                datos.update(self.estado_durabilidad(identidad_equipada(self, slot)))
+                if isinstance(item, Secundario):
+                    datos.update(absorcion_pasiva=item.absorcion_pasiva, bloqueo_activo=item.bloqueo_activo)
             else:
                 resultado[slot] = None
         return resultado
@@ -312,4 +331,9 @@ class Inventario(ItemContainer):
             elif isinstance(item, Material):
                 datos["descripcion"] = item.descripcion
             resultado.append(datos)
+            if isinstance(item, (Arma, Armadura, Secundario)):
+                instancia = next(k for k, v in self._instancias.items() if v == item_id)
+                datos.update(self.estado_durabilidad(instancia))
+            if isinstance(item, Secundario):
+                datos.update(absorcion_pasiva=item.absorcion_pasiva, bloqueo_activo=item.bloqueo_activo)
         return resultado

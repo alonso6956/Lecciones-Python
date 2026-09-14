@@ -35,6 +35,11 @@ class Habilidad:
     inbloqueable: bool = False
     usa_mitigacion_escudo: bool = False
     consume_accion: bool = True
+    rapido: bool = False
+    imparable: bool = False
+    ignora_parada: bool = False
+    rompe_guardia: bool = False
+    probabilidad_ruptura: float = 0.5
 
     def multiplicador_dano(self, nivel):
         return self.multiplicador_base * (1 + nivel * self.bonus_dano_por_nivel)
@@ -84,20 +89,10 @@ class Habilidad:
                 "realiza un ataque normal."
             )
         if self.id == "bloqueo_contraataque":
-            probabilidad_base = getattr(escudo, "probabilidad_bloqueo", 0)
-            probabilidad_adicional = self.bonus_probabilidad_bloqueo(nivel)
-            probabilidad_total = round(
-                min(1.0, probabilidad_base + probabilidad_adicional) * 100
-            )
-            bloqueado = round(
-                getattr(escudo, "porcentaje_dano_bloqueado", 0) * 100
-            )
-            return (
-                "Contraataca con el daño del arma y gana 5% de daño por "
-                f"punto de Constitución. Tiene {probabilidad_total}% de "
-                f"bloquear durante este ataque; "
-                f"al hacerlo obtiene {bloqueado}% de daño adicional."
-            )
+            bloqueado = round(getattr(escudo, "bloqueo_activo", 0) * 100)
+            return ("Contraataca con el daño del arma y gana 5% de daño por punto de Constitución. "
+                    f"Tras una defensa activa exitosa obtiene {bloqueado}% de daño adicional "
+                    "en tu siguiente acción, si el escudo sigue íntegro. Los ataques rápidos no habilitan este bono.")
         if self.id == "mitigar_dano":
             reduccion = round(
                 self.calcular_efecto(nivel, valor_atributo, escudo) * 100

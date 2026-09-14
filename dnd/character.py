@@ -24,7 +24,7 @@ class Personaje(EstadisticasDerivadas):
     ESCALADO_CONSTITUCION = 0.0
     ESCALADO_VIDA_NIVEL = 0.10  # 10% de SALUD_BASE: +5 de vida por nivel ganado.
     ENERGIA_BASE = 3
-    NIVEL_MAXIMO = 30
+    NIVEL_MAXIMO = 999
     CAPACIDAD_PESO_BASE = 8
     CAPACIDAD_PESO_POR_FUERZA = 2
 

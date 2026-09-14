@@ -1,6 +1,6 @@
 // Atajo para buscar un elemento del HTML por su id.
 const elemento = (id) => document.getElementById(id);
-const UI_VERSION = "24";
+const UI_VERSION = "25";
 
 // Última copia del estado enviada por Python.
 let estado = null;
@@ -346,7 +346,7 @@ function renderizarPanel(jugador) {
   );
 
   elemento("energyPips").innerHTML = puntosDeEnergia.join("");
-  elemento("level").textContent = `${jugador.nivel}/${jugador.nivel_maximo}`;
+  elemento("level").textContent = jugador.nivel;
   elemento("exp").textContent = jugador.exp_siguiente_nivel === null
     ? "MÁX"
     : `${jugador.exp}/${jugador.exp_siguiente_nivel}`;
@@ -489,9 +489,9 @@ function descripcionObjeto(item) {
     detalles.push(`Escala con Fuerza · coeficiente ${item.escalado_fuerza}`);
   } else if (item.clase === "secundario") {
     detalles.push(`Tier ${item.tier}`);
-    detalles.push(`${Math.round(item.probabilidad_bloqueo * 100)}% de bloqueo`);
+    detalles.push(`${Math.round(item.absorcion_pasiva * 100)}% de absorción pasiva`);
     detalles.push(
-      `Bloquea ${Math.round(item.porcentaje_dano_bloqueado * 100)}% del daño`,
+      `Bloquea ${Math.round(item.bloqueo_activo * 100)}% del daño`,
     );
     detalles.push(`Peso ${item.peso} kg`);
     detalles.push(`Durabilidad ${item.durabilidad}`);
@@ -534,6 +534,9 @@ function obtenerDescripcionDelEncuentro(enemigo) {
     if (intencion.startsWith("habilidad:")) {
       return `El ${enemigo.nombre} prepara ${intencion.split(":")[1]}.`;
     }
+    if (intencion === "poderoso") {
+      return `El ${enemigo.nombre} prepara un ataque poderoso: daño ×1.5, presión ×1.25. Actúas primero y no podrá repetirlo en su siguiente ataque.`;
+    }
     return `El ${enemigo.nombre} prepara un ataque ${intencion}.`;
   }
   if (estado.fase === "nivel") {
@@ -553,6 +556,20 @@ function obtenerDescripcionDelEncuentro(enemigo) {
 
 function renderizarEncuentro() {
   const enemigo = estado.enemigo;
+  for (const [id, modelo] of [["playerShield", estado.jugador], ["enemyShield", enemigo]]) {
+    let indicador = document.getElementById(id);
+    if (!indicador) {
+      indicador = document.createElement("label"); indicador.id = id;
+      elemento("intent").parentElement.append(indicador);
+    }
+    indicador.hidden = !modelo?.durabilidad_maxima_escudo;
+    if (!indicador.hidden) {
+      const valor = Number(modelo.durabilidad_escudo.toFixed(1));
+      indicador.textContent = `Escudo de ${modelo.nombre}: ${valor} / ${modelo.durabilidad_maxima_escudo}${valor === 0 ? " · Roto" : ""} `;
+      const barra = document.createElement("progress"); barra.max = modelo.durabilidad_maxima_escudo; barra.value = valor;
+      barra.setAttribute("aria-label", `Durabilidad del escudo de ${modelo.nombre}`); indicador.append(barra);
+    }
+  }
   elemento("enemyHealth").classList.toggle("hidden", !enemigo);
 
   if (enemigo) {
@@ -588,7 +605,7 @@ function agregarAccionesDeCombate(jugador) {
     "Defender · +1 energía",
     () => llamarApi("accion", { accion: "defender" }),
     {
-      tooltip: "Duplica la armadura durante este turno y recupera 1 de energía.",
+      tooltip: "Parada con arma: reduce 50%, 25% o 10% según su poder frente al ataque. Una parada completa hace perder la siguiente acción al rival. Con escudo usa bloqueo activo. Recupera 1 energía; los rápidos evitan la defensa activa.",
     },
   );
   for (const habilidad of jugador.habilidades) {

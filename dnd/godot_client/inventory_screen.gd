@@ -125,9 +125,9 @@ func _item_details(item: Dictionary) -> String:
 			item.get("defensa", 0), item.get("peso", 0)
 		]
 	if item_class == "secundario":
-		return "Bloqueo: %s%% · Daño bloqueado: %s%% · Peso: %s" % [
-			round(float(item.get("probabilidad_bloqueo", 0)) * 100),
-			round(float(item.get("porcentaje_dano_bloqueado", 0)) * 100),
+		return "Absorción pasiva: %s%% · Bloqueo activo: %s%% · Peso: %s" % [
+			round(float(item.get("absorcion_pasiva", 0)) * 100),
+			round(float(item.get("bloqueo_activo", 0)) * 100),
 			item.get("peso", 0),
 		]
 	if item_class == "consumible":

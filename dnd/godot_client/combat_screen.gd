@@ -24,10 +24,14 @@ signal refresh_requested
 @onready var refresh_button: Button = $RefreshButton
 
 var _last_state: Dictionary = {}
+var _player_shield := ProgressBar.new()
+var _enemy_shield := ProgressBar.new()
 
 
 func _ready() -> void:
 	refresh_button.pressed.connect(_on_refresh_pressed)
+	$PlayerPanel.add_child(_player_shield)
+	enemy_panel.add_child(_enemy_shield)
 
 
 func _on_refresh_pressed() -> void:
@@ -79,6 +83,7 @@ func render_state(state: Dictionary) -> void:
 
 
 func _render_player(player: Dictionary) -> void:
+	_render_shield(_player_shield, player)
 	player_view.render_combatant(player)
 	player_name.text = "%s · %s · %s" % [player.get("nombre", "Personaje"), player.get("clase_nombre", "Sin clase"), "Chispa latente" if player.get("chispa") != null else "Sin chispa"]
 	player_health.max_value = float(player.get("salud_maxima", 1))
@@ -100,6 +105,7 @@ func _render_enemy(enemy) -> void:
 		return
 
 	enemy_view.render_combatant(enemy)
+	_render_shield(_enemy_shield, enemy)
 	enemy_panel.visible = true
 	enemy_name.text = str(enemy.get("nombre", "Enemigo"))
 	var maximum_health := float(enemy.get("hp_maxima", 1))
@@ -112,6 +118,17 @@ func _render_enemy(enemy) -> void:
 	enemy_intent.text = "Intención: " + str(
 		enemy.get("intencion", "Desconocida")
 	)
+	if enemy.get("intencion") == "poderoso":
+		enemy_intent.text += " · Daño ×1.5 · Presión ×1.25\nActúas primero. No puede repetirlo consecutivamente."
+
+
+func _render_shield(bar: ProgressBar, actor: Dictionary) -> void:
+	bar.visible = float(actor.get("durabilidad_maxima_escudo", 0)) > 0
+	bar.max_value = maxf(1, float(actor.get("durabilidad_maxima_escudo", 0)))
+	bar.value = float(actor.get("durabilidad_escudo", 0))
+	bar.tooltip_text = "Escudo: %.1f / %.1f" % [bar.value, bar.max_value]
+	bar.show_percentage = false
+	bar.custom_minimum_size.y = 14
 
 
 func _render_log(state: Dictionary) -> void:

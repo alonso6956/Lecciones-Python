@@ -100,6 +100,7 @@ def calcular_dano_habilidad(
     escalado_arma=1.0,
     bloqueo_exitoso=False,
     porcentaje_dano_bloqueado=0,
+    solo_bruto=False,
 ):
     """Calcula el daño bruto y aplica escudo y armadura en capas separadas."""
     if habilidad.id == "bloqueo_contraataque":
@@ -119,6 +120,8 @@ def calcular_dano_habilidad(
     # Se conserva el argumento de constitución por compatibilidad, pero la nueva
     # fórmula depende únicamente de la armadura.
     _ = constitucion_objetivo
+    if solo_bruto:
+        return dano_bruto
     bloqueo_aplicable = 0 if habilidad.inbloqueable else bloqueo_escudo
     dano_final = aplicar_mitigacion_dano(
         dano_bruto,

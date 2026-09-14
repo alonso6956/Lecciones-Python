@@ -9,8 +9,8 @@ from items import calcular_factor_arma
 
 
 RAZAS = {
-    "Goblin": {"base": 1, "oro": (5, 10), "exp": 10},
-    "Esqueleto": {"base": 2, "oro": (10, 15), "exp": 15},
+    "Goblin": {"base": 1, "dano_base": 2, "oro": (5, 10), "exp": 10},
+    "Esqueleto": {"base": 2, "dano_base": 2, "oro": (10, 15), "exp": 15},
     "Bandido": {"base": 3, "oro": (13, 20), "exp": 20},
     "Orco": {"base": 4, "oro": (18, 25), "exp": 30},
     "Troll": {"base": 5, "oro": (22, 30), "exp": 40},
@@ -47,7 +47,8 @@ ARQUETIPOS = {
 ARQUETIPOS_COMUNES = ("Rogue", "Guerrero", "Bárbaro")
 
 SPAWN_POR_HABITACION = (
-    (1, 9, {"Goblin": 90, "Esqueleto": 10}),
+    (1, 1, {"Goblin": 100}),
+    (2, 9, {"Goblin": 90, "Esqueleto": 10}),
     (10, 19, {"Goblin": 70, "Esqueleto": 20, "Bandido": 10}),
     (20, 29, {"Esqueleto": 50, "Bandido": 30, "Orco": 20}),
     (30, 39, {"Bandido": 50, "Orco": 30, "Troll": 20}),
@@ -79,6 +80,9 @@ class Enemigo(EstadisticasDerivadas):
     sangrado_dano: int = 0
     sangrado_turnos: int = 0
     efectos_arma: dict = field(default_factory=dict)
+    durabilidades: dict = field(default_factory=dict)
+    acciones_perdidas: int = 0
+    ultimo_ataque_poderoso: bool = False
 
     def __post_init__(self):
         for habilidad_id in self.habilidades:
@@ -90,7 +94,7 @@ class Enemigo(EstadisticasDerivadas):
         return f"{self.raza} {self.arquetipo}"
 
     def calcular_dano_base(self):
-        return 3
+        return RAZAS[self.raza].get("dano_base", 3)
 
     def calcular_defensa_base(self):
         """La Constitución no concede Armadura a los enemigos."""
@@ -99,7 +103,8 @@ class Enemigo(EstadisticasDerivadas):
     @property
     def defensa_total(self):
         escudo = item_factory.crear(self.secundario) if self.secundario else None
-        return self.calcular_defensa_base() + getattr(escudo, "defensa", 0)
+        from defense_system import durabilidad_escudo
+        return self.calcular_defensa_base() + (getattr(escudo, "defensa", 0) if durabilidad_escudo(self) > 0 else 0)
 
     @property
     def evasion(self):

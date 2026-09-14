@@ -81,6 +81,8 @@ class Secundario(Item):
     defensa: int = 0
     calidad: str = "legacy"
     version_diseno: int = 1
+    absorcion_pasiva: float = 0.10
+    bloqueo_activo: float = 0.60
 
     def cumple_requisitos(self, personaje):
         return all(

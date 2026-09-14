@@ -30,6 +30,7 @@ def serializar_personaje(jugador):
         "equipamiento": inventario["equipamiento"],
         "version_equipamiento": 2,
         "instancias": inventario["instancias"], "custom": inventario["custom"],
+        "durabilidades": inventario["durabilidades"],
         "capacidad_inventario": inventario["capacidad"], "crafting_exp": jugador.crafting_exp,
         "exp": jugador.exp, "oro": jugador.oro,
         "puntos_estadistica": jugador.puntos_estadistica,
@@ -79,6 +80,7 @@ def deserializar_personaje(datos):
             "items": items, "equipamiento": datos["equipamiento"], "arma_equipada": arma.id,
             "custom": datos.get("custom", {}), "capacidad": datos.get("capacidad_inventario"),
             "version_equipamiento": datos.get("version_equipamiento", 1),
+            "durabilidades": datos.get("durabilidades", {}),
             **({"instancias": datos["instancias"]} if "instancias" in datos else {}),
         })
         if not jugador.inventario.arma_equipada or jugador.inventario.arma_equipada.id != arma.id:

@@ -14,6 +14,9 @@ def bonus(modelo, nombre):
     if not inventario and getattr(modelo, "secundario", None):
         from item_factory import item_factory
         equipo = getattr(item_factory.crear(modelo.secundario), "bonificaciones", {})
+        from defense_system import durabilidad_escudo
+        if durabilidad_escudo(modelo) <= 0:
+            equipo = {}
     return equipo.get(nombre, 0) + getattr(modelo, "modificadores", {}).get(nombre, 0)
 
 

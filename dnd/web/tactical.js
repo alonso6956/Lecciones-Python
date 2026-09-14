@@ -89,8 +89,8 @@ function statValues(actor) {
     ["Armadura", actor.armadura], ["Mitigación", percent(actor.mitigacion_armadura)],
     ["Iniciativa", actor.iniciativa], ["Evasión", percent(actor.evasion)],
     ["Arma", actor.arma], ["Secundario", actor.secundario || "Ninguno"],
-    ["Bloqueo", percent(actor.probabilidad_bloqueo)],
-    ["Daño bloqueado", percent(actor.porcentaje_dano_bloqueado)]];
+    ["Absorción pasiva", percent(actor.absorcion_pasiva)],
+    ["Bloqueo activo", percent(actor.bloqueo_activo)]];
   if (actor.critico_arma !== undefined) values.push(
     ["Movimiento", actor.movimiento], ["Regeneración por turno", actor.regeneracion],
     ["Impacto", actor.impacto], ["Estabilidad", actor.estabilidad],

@@ -36,6 +36,8 @@ def _construir_catalogo_compatible():
                 "slot": "mano_secundaria",
                 "tier": item.tier,
                 "probabilidad_bloqueo": item.probabilidad_bloqueo,
+                "absorcion_pasiva": item.absorcion_pasiva,
+                "bloqueo_activo": item.bloqueo_activo,
                 "porcentaje_dano_bloqueado": item.porcentaje_dano_bloqueado,
                 "peso": item.peso,
                 "durabilidad": item.durabilidad,

@@ -85,8 +85,9 @@ function stats(data) {
   if (data.critico !== undefined) add("Crítico", `${(data.critico * 100).toFixed(1)}%`);
   if (data.penetracion !== undefined) add("Penetración", Number(data.penetracion.toFixed(1)));
   for (const [key, label] of [["durabilidad", "Durabilidad"], ["peso", "Peso"], ["alcance", "Alcance"]]) if (data[key] !== undefined) add(label, data[key]);
-  if (data.probabilidad_bloqueo !== undefined) add("Bloqueo", `${Math.round(data.probabilidad_bloqueo * 100)}%`);
-  if (data.porcentaje_dano_bloqueado !== undefined) add("Daño bloqueado", `${Math.round(data.porcentaje_dano_bloqueado * 100)}%`);
+  if (data.durabilidad_actual !== undefined) add("Integridad", `${Number(data.durabilidad_actual.toFixed(1))} / ${data.durabilidad_maxima}${data.roto ? " · Roto" : ""}`);
+  if (data.absorcion_pasiva !== undefined) add("Absorción pasiva", `${Math.round(data.absorcion_pasiva * 100)}%`);
+  if (data.bloqueo_activo !== undefined) add("Bloqueo activo", `${Math.round(data.bloqueo_activo * 100)}% · fiable`);
   if (data.efecto) add(data.efecto, data.valor);
   if (data.bonus_sobrenatural) add("Daño a sobrenaturales", `+${Math.round(data.bonus_sobrenatural * 100)}%`);
   if (data.requisitos) add("Requisitos", Object.entries(data.requisitos).map(([k, v]) => `${k} ${v}`).join(", ") || "Ninguno");
@@ -125,7 +126,7 @@ function renderPreview() {
   if (p.calidades?.length) add("Calidades posibles", p.calidades.join(" · "));
   add("Afijos máximos", p.afijos_maximos);
   if (p.ataque) { add("Daño mínimo posible", range(p.ataque.minimo)); add("Daño máximo posible", range(p.ataque.maximo)); }
-  for (const [key, label, scale, suffix] of [["velocidad", "Velocidad", 1, "×"], ["critico", "Crítico", 100, "%"], ["penetracion", "Penetración", 1, ""], ["defensa", "Defensa", 1, ""], ["probabilidad_bloqueo", "Bloqueo", 100, "%"], ["porcentaje_dano_bloqueado", "Daño bloqueado", 100, "%"], ["peso", "Peso", 1, ""], ["durabilidad", "Durabilidad", 1, ""]]) {
+  for (const [key, label, scale, suffix] of [["velocidad", "Velocidad", 1, "×"], ["critico", "Crítico", 100, "%"], ["penetracion", "Penetración", 1, ""], ["defensa", "Defensa", 1, ""], ["absorcion_pasiva", "Absorción pasiva", 100, "%"], ["bloqueo_activo", "Bloqueo activo", 100, "%"], ["peso", "Peso", 1, ""], ["durabilidad", "Durabilidad", 1, ""]]) {
     if (p.rangos[key]) add(label, `${range(p.rangos[key], scale)}${suffix}`);
   }
   add("Fabricación", `${p.coste_oro} oro + materiales`);
@@ -173,6 +174,12 @@ function showPopup(item, deposit, anchor) {
   if (data.descripcion) popup.append(node("p", data.descripcion));
   if (data.afijo?.id) popup.append(node("p", effectText(data.afijo)));
   const actions = node("div"); actions.className = "popup-actions";
+  if (!isVault && deposit && item.reparacion?.reparable) {
+    const cost = item.reparacion;
+    popup.append(node("p", `Reparación completa: ${cost.coste_oro} oro y ${cost.cantidad_material} de ${cost.material.replace("material_", "")}. Se pueden usar materiales del vault.`));
+    const repair = node("button", "Reparar"); repair.disabled = !canAct() || state.oro < cost.coste_oro;
+    repair.onclick = () => act("reparar", {instance_id: item.instance_id}); actions.append(repair);
+  }
   const label = node("label", "Cantidad"), quantity = node("input"); quantity.type = "number"; quantity.min = "1"; quantity.max = String(item.cantidad); quantity.step = "1"; quantity.value = "1"; quantity.required = true;
   label.append(quantity);
   const move = node("button", deposit ? "Depositar" : "Retirar"); move.disabled = !canAct() || !item.transferible;

@@ -17,7 +17,7 @@ def estados_activos_jugador(motor):
                 "id": "defender",
                 "nombre": "Defendiendo",
                 "tipo": "buff",
-                "descripcion": "Armadura duplicada.",
+                "descripcion": "Parada con arma o bloqueo activo con escudo. Los ataques rápidos solo reciben mitigación pasiva.",
                 "duracion": "Hasta tu próxima acción",
             }
         )
@@ -80,6 +80,9 @@ def estados_activos_enemigo(motor):
     if not enemigo:
         return []
     estados = []
+    if enemigo.acciones_perdidas:
+        estados.append({"id": "ofensiva_quebrada", "nombre": "Ofensiva quebrada", "tipo": "debuff",
+                        "descripcion": "Perderá su siguiente acción.", "duracion": "1 acción"})
     for habilidad_id, turnos in enemigo.efectos_habilidad.items():
         if turnos <= 0:
             continue

@@ -76,6 +76,9 @@ class ItemFactory:
                 raise ValueError("Armadura procedural inválida.")
             numeros += [arma.defensa, *arma.bonificaciones.values()]
         else:
+            if any(type(v) not in (int, float) or not math.isfinite(v) or not 0 <= v <= 1
+                   for v in (arma.absorcion_pasiva, arma.bloqueo_activo)):
+                raise ValueError("Absorción de escudo inválida.")
             numeros += [arma.defensa, arma.probabilidad_bloqueo, arma.porcentaje_dano_bloqueado, *arma.bonificaciones.values()]
             if arma.tipo_secundario != "escudo" or not 0 <= arma.probabilidad_bloqueo <= 1 or not 0 <= arma.porcentaje_dano_bloqueado <= 1:
                 raise ValueError("Escudo procedural inválido.")

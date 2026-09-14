@@ -69,6 +69,7 @@ class MotorJuego:
         self.ultimo_actor = None
         self.acumuladores_velocidad = {"jugador": 0, "enemigo": 0}
         self.is_defending = False
+        self.contraataque_disponible = False
         self.cooldowns_habilidades = {}
         self.efectos_habilidades = {}
         self.registro = []
@@ -198,6 +199,7 @@ class MotorJuego:
         self.ultimo_actor = None
         self.acumuladores_velocidad = {"jugador": 0, "enemigo": 0}
         self.is_defending = False
+        self.contraataque_disponible = False
         self.cooldowns_habilidades = {
             habilidad.id: 0 for habilidad in habilidad_factory.todas()
         }
@@ -240,16 +242,13 @@ class MotorJuego:
             return
 
         self.enemigo_dano = tirar_dano(enemigo, self.rng)
-        minimo, maximo = objetos["armas"][enemigo.arma]["ataque"]
-        minimo += enemigo.calcular_dano_base()
-        maximo += enemigo.calcular_dano_base()
-        tercio = (maximo - minimo) / 3
-        if self.enemigo_dano <= minimo + tercio:
-            self.intencion = "rápido"
-        elif self.enemigo_dano >= maximo - tercio:
-            self.intencion = "poderoso"
-        else:
-            self.intencion = "normal"
+        # La intención no depende de la tirada de daño ni de su escalado.
+        # Un poderoso exige una acción de otro tipo antes de poder repetirse.
+        tirada = self.rng.random()
+        self.intencion = ("rápido" if tirada < .25 else
+                          "poderoso" if tirada >= .85 and not enemigo.ultimo_ataque_poderoso else "normal")
+        if self.intencion == "poderoso":
+            self.enemigo_dano *= 1.5
 
     def _dano_total_jugador(self):
         return tirar_dano(self.jugador, self.rng)
@@ -308,6 +307,32 @@ class MotorJuego:
             dano=dano,
             hp_restante=max(0, enemigo.hp),
         )
+
+    def _defensa_del_golpe(self, atacante, defensor, dano, **opciones):
+        from defense_system import resolver_defensa
+        resultado = resolver_defensa(atacante, defensor, dano, rng=self.rng, **opciones)
+        actor = "jugador" if defensor is self.jugador else "enemigo"
+        objetivo = "enemigo" if actor == "jugador" else "jugador"
+        if resultado["ruptura"] and defensor is self.jugador:
+            self.is_defending = False
+            self._registrar_evento("ruptura_guardia", "La ruptura cancela Defender.", actor=objetivo, objetivo=actor)
+        if resultado["parada"]:
+            grado = resultado["parada"]
+            texto = {"completa": "Parada completa: -50% de daño", "parcial": "Parada parcial: -25% de daño",
+                     "debil": "Defensa débil: -10% de daño"}[grado]
+            self._registrar_evento("parada", texto + ".", actor=actor, objetivo=objetivo,
+                grado=grado, poder_parada=resultado["poder_parada"], presion_ataque=resultado["presion_ataque"])
+        if resultado["absorbido"]:
+            self._registrar_evento("bloqueo", f"El escudo absorbe {resultado['absorbido']:g} de daño.",
+                actor=actor, objetivo=objetivo, absorbido=resultado["absorbido"], activo=resultado["bloqueo_activo"])
+        if resultado["pierde_accion"]:
+            if defensor is self.jugador:
+                self.contraataque_disponible = True
+            if atacante is self.enemigo_actual:
+                atacante.acciones_perdidas = 1
+            else:
+                self.aturdimiento_jugador = max(1, self.aturdimiento_jugador)
+        return resultado
 
     def _resolver_ataques_multiples(self, habilidad, nivel_habilidad):
         """Resuelve cada golpe del combo como un ataque completo e independiente."""
@@ -369,24 +394,6 @@ class MotorJuego:
                     bonus=bonus_vida_faltante,
                 )
 
-            porcentaje_bloqueado = 0
-            bloqueo_exitoso = bool(
-                escudo_enemigo
-                and self.rng.random() < escudo_enemigo.probabilidad_bloqueo
-            )
-            if bloqueo_exitoso:
-                porcentaje_bloqueado = escudo_enemigo.porcentaje_dano_bloqueado
-                self._registrar_evento(
-                    "bloqueo",
-                    f"¡Bloqueo! El enemigo reduce el golpe {numero_golpe} un "
-                    f"{round(porcentaje_bloqueado * 100)}%.",
-                    actor="enemigo",
-                    objetivo="jugador",
-                    habilidad=habilidad.id,
-                    golpe=numero_golpe,
-                    porcentaje=porcentaje_bloqueado,
-                )
-
             critico = bool(
                 pasiva
                 and pasiva.efecto == "critico"
@@ -397,19 +404,21 @@ class MotorJuego:
             dano_golpe, critico_arma = modificar_golpe(self.jugador, self.enemigo_actual, dano_golpe, self.rng)
             critico = critico or critico_arma
 
+            defensa_golpe = self._defensa_del_golpe(self.jugador, self.enemigo_actual, dano_golpe, ataque=habilidad)
+            dano_golpe = defensa_golpe["dano"]
+            bloqueo_exitoso = defensa_golpe["absorbido"] > 0
             recibido = max(
-                1,
+                0,
                 round(
                     aplicar_mitigacion_dano(
                         dano_golpe,
-                        bloqueo_escudo=porcentaje_bloqueado,
                         armadura=armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total),
                     )
                 ),
             )
             reduccion = self.enemigo_actual.reduccion_dano_activa()
             if reduccion:
-                recibido = max(1, round(recibido * (1 - reduccion)))
+                recibido = max(0, round(recibido * (1 - reduccion)))
 
             if critico:
                 self._registrar_evento(
@@ -482,16 +491,16 @@ class MotorJuego:
                     actor="enemigo", objetivo="jugador", golpe=numero, golpes_totales=len(golpes))
                 continue
             ignora = bool(pasiva and pasiva.efecto == "ignorar_defensa" and pasiva.ignora_defensa(self.rng.random()))
-            bloqueado = bool(not ignora and isinstance(escudo, Secundario) and self.rng.random() < escudo.probabilidad_bloqueo)
             bruto = tirar_dano(self.jugador, self.rng, arma) * factor
             critico_pasiva = bool(pasiva and pasiva.efecto == "critico" and self.rng.random() < pasiva.probabilidad)
             if critico_pasiva:
                 bruto = pasiva.calcular_critico(bruto)
             bruto, critico = modificar_golpe(self.jugador, enemigo, bruto, self.rng, arma)
-            dano = aplicar_mitigacion_dano(bruto,
-                bloqueo_escudo=escudo.porcentaje_dano_bloqueado if bloqueado else 0,
+            defensa_golpe = self._defensa_del_golpe(self.jugador, enemigo, bruto, arma=arma, ignora=ignora)
+            bloqueado = defensa_golpe["absorbido"] > 0
+            dano = aplicar_mitigacion_dano(defensa_golpe["dano"],
                 armadura=0 if ignora else armadura_tras_penetracion(self.jugador, enemigo.defensa_total, arma))
-            dano = max(1, round(dano * (1 - enemigo.reduccion_dano_activa())))
+            dano = max(0, round(dano * (1 - enemigo.reduccion_dano_activa())))
             enemigo.hp = max(0, enemigo.hp - dano)
             activar_afijo(self.jugador, enemigo, self.rng, arma)
             self._registrar_evento("dano", f"{arma.nombre}: golpe {numero}/{len(golpes)} causa {dano} de daño.",
@@ -506,6 +515,8 @@ class MotorJuego:
         # el jugador recibe un golpe. Si vuelve a defender, se reactiva para
         # todos los ataques que ocurran antes de su siguiente acción.
         self.is_defending = False
+        contraataque = getattr(self, "contraataque_disponible", False)
+        self.contraataque_disponible = False
         dano = 0
         defensa_extra = 0
         ataques_evitar = 0
@@ -521,8 +532,7 @@ class MotorJuego:
             self.energia = min(self.energia_maxima, self.energia + 1)
             self.is_defending = True
             self._registrar(
-                f"Defiendes con {self._defensa_total_jugador() * 2} de armadura "
-                "y recuperas energía."
+                "Adoptas una defensa activa con tu arma o escudo y recuperas energía."
             )
             return defensa_extra, ataques_evitar
         else:
@@ -568,48 +578,33 @@ class MotorJuego:
                     and pasiva.ignora_defensa(self.rng.random())
                 )
                 escudo = self.jugador.inventario.secundario_equipado
-                probabilidad_bloqueo_habilidad = min(
-                    1.0,
-                    (
-                        getattr(escudo, "probabilidad_bloqueo", 0)
-                        + habilidad.bonus_probabilidad_bloqueo(nivel_habilidad)
-                    )
-                    if escudo and habilidad.id == "bloqueo_contraataque"
-                    else 0,
-                )
-                bloqueo_exitoso = bool(
-                    habilidad.id == "bloqueo_contraataque"
-                    and escudo
-                    and getattr(escudo, "tipo_secundario", None) == "escudo"
-                    and self.rng.random() < probabilidad_bloqueo_habilidad
-                )
+                from defense_system import durabilidad_escudo
+                bloqueo_exitoso = bool(habilidad.id == "bloqueo_contraataque" and contraataque
+                    and durabilidad_escudo(self.jugador) > 0)
                 if bloqueo_exitoso:
                     self._registrar_evento(
                         "bloqueo",
                         "¡Bloqueo! Bloqueo y contraataque obtiene "
-                        f"+{round(escudo.porcentaje_dano_bloqueado * 100)}% "
+                        f"+{round(escudo.bloqueo_activo * 100)}% "
                         "de daño adicional.",
                         actor="jugador",
                         objetivo="enemigo",
                         habilidad=habilidad.id,
-                        probabilidad=probabilidad_bloqueo_habilidad,
-                        porcentaje_dano=escudo.porcentaje_dano_bloqueado,
+                        porcentaje_dano=escudo.bloqueo_activo,
                     )
                 dano = calcular_dano_habilidad(
                     dano_base=self.jugador.DANO_BASE,
-                    dano_arma=obtener_dano_arma(self.jugador.arma, self.rng),
+                    dano_arma=self.rng.randint(*self.jugador.inventario.arma_equipada.ataque),
                     habilidad=habilidad,
                     nivel_habilidad=nivel_habilidad,
                     valor_atributo=valor_atributo,
                     fuerza=self.jugador.fuerza_total,
                     escalado_arma=self.jugador.inventario.arma_equipada.coeficiente_fuerza,
-                    defensa_objetivo=(
-                        0 if defensa_ignorada else armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total)
-                    ),
+                    defensa_objetivo=0, solo_bruto=True,
                     constitucion_objetivo=self.enemigo_actual.constitucion,
                     bloqueo_exitoso=bloqueo_exitoso,
                     porcentaje_dano_bloqueado=(
-                        getattr(escudo, "porcentaje_dano_bloqueado", 0)
+                        getattr(escudo, "bloqueo_activo", 0)
                     ),
                 )
                 dano_ya_mitigado = True
@@ -656,29 +651,8 @@ class MotorJuego:
                 and pasiva.ignora_defensa(self.rng.random())
             )
 
-        recibido_enemigo = (
-            dano
-            if dano_ya_mitigado
-            else max(
-                1,
-                round(
-                    aplicar_mitigacion_dano(
-                        dano,
-                        armadura=(
-                            0
-                            if defensa_ignorada
-                            else armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total)
-                        ),
-                    )
-                ),
-            )
-        )
+        recibido_enemigo = dano
         reduccion_enemiga = self.enemigo_actual.reduccion_dano_activa()
-        if reduccion_enemiga:
-            recibido_enemigo = max(
-                1,
-                round(recibido_enemigo * (1 - reduccion_enemiga)),
-            )
         if defensa_ignorada:
             self._registrar_evento(
                 "defensa_ignorada",
@@ -736,36 +710,6 @@ class MotorJuego:
                     golpes_totales=numero_ataques,
                 )
                 continue
-            escudo_enemigo = (
-                item_factory.crear(self.enemigo_actual.secundario)
-                if self.enemigo_actual.secundario
-                else None
-            )
-            bloqueo_enemigo = bool(
-                not defensa_ignorada
-                and (
-                    segunda_daga_normal
-                    or not getattr(habilidad, "inbloqueable", False)
-                )
-                and escudo_enemigo
-                and self.rng.random() < escudo_enemigo.probabilidad_bloqueo
-            )
-            porcentaje_bloqueado = (
-                escudo_enemigo.porcentaje_dano_bloqueado
-                if bloqueo_enemigo
-                else 0
-            )
-            if bloqueo_enemigo:
-                self._registrar_evento(
-                    "bloqueo",
-                    f"¡Bloqueo! El enemigo reduce el golpe un "
-                    f"{round(porcentaje_bloqueado * 100)}%.",
-                    actor="enemigo",
-                    objetivo="jugador",
-                    habilidad=habilidad.id if habilidad else None,
-                    golpe=numero_ataque,
-                    porcentaje=porcentaje_bloqueado,
-                )
             critico = bool(
                 pasiva
                 and pasiva.efecto == "critico"
@@ -776,32 +720,12 @@ class MotorJuego:
             dano_ataque, critico_arma = modificar_golpe(self.jugador, self.enemigo_actual, dano_ataque, self.rng)
             critico = critico or critico_arma
 
-            if ataque_normal_independiente:
-                dano_ataque = max(
-                    1,
-                    round(
-                        aplicar_mitigacion_dano(
-                            dano_ataque,
-                            bloqueo_escudo=porcentaje_bloqueado,
-                            armadura=(
-                                0
-                                if defensa_ignorada
-                                else armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total)
-                            ),
-                        )
-                    ),
-                )
-                if reduccion_enemiga:
-                    dano_ataque = max(
-                        1,
-                        round(dano_ataque * (1 - reduccion_enemiga)),
-                    )
-            elif bloqueo_enemigo:
-                # Las habilidades de esta ruta ya llegan mitigadas por armadura.
-                dano_ataque = max(
-                    1,
-                    round(dano_ataque * (1 - porcentaje_bloqueado)),
-                )
+            defensa_golpe = self._defensa_del_golpe(self.jugador, self.enemigo_actual, dano_ataque,
+                ataque=None if segunda_daga_normal else habilidad, ignora=defensa_ignorada)
+            bloqueo_enemigo = defensa_golpe["absorbido"] > 0
+            dano_ataque = max(0, round(aplicar_mitigacion_dano(defensa_golpe["dano"],
+                armadura=0 if defensa_ignorada else armadura_tras_penetracion(self.jugador, self.enemigo_actual.defensa_total))
+                * (1 - reduccion_enemiga)))
 
             if critico:
                 self._registrar_evento(
@@ -858,8 +782,16 @@ class MotorJuego:
             enemigo.cooldowns_habilidad[habilidad_usada] = habilidad.cooldown_turnos
 
     def _accion_enemigo(self, defensa_extra):
+        if self.enemigo_actual.acciones_perdidas:
+            self.enemigo_actual.acciones_perdidas -= 1
+            self._registrar_evento("accion_perdida", "El enemigo pierde su siguiente acción por la defensa activa.",
+                actor="enemigo", objetivo="enemigo")
+            self._actualizar_habilidades_enemigo()
+            self._preparar_turno_enemigo()
+            return
         habilidad_id = self.enemigo_habilidad
         habilidad = habilidad_factory.crear(habilidad_id) if habilidad_id else None
+        self.enemigo_actual.ultimo_ataque_poderoso = self.intencion == "poderoso"
         if habilidad and not habilidad.causa_dano:
             if (
                 habilidad.bloquear_mientras_activa
@@ -910,57 +842,23 @@ class MotorJuego:
             self._actualizar_habilidades_enemigo(habilidad_id)
             self._preparar_turno_enemigo()
             return
-        defensa = self._defensa_total_jugador()
-        if self.is_defending:
-            # No se consume aquí: cada ataque previo al siguiente turno del
-            # jugador se enfrenta a su defensa total duplicada.
-            defensa *= 2
-        defensa += defensa_extra
-        escudo_jugador = self.jugador.inventario.secundario_equipado
-        bloqueo_exitoso = bool(
-            escudo_jugador
-            and getattr(escudo_jugador, "tipo_secundario", None) == "escudo"
-            and self.rng.random() < escudo_jugador.probabilidad_bloqueo
-        )
-        porcentaje_bloqueado = (
-            escudo_jugador.porcentaje_dano_bloqueado if bloqueo_exitoso else 0
-        )
-        if bloqueo_exitoso:
-            self._registrar_evento(
-                "bloqueo",
-                f"¡Bloqueo! Tu escudo reduce el ataque un "
-                f"{round(porcentaje_bloqueado * 100)}%.",
-                actor="jugador",
-                objetivo="enemigo",
-                porcentaje=porcentaje_bloqueado,
-                habilidad=habilidad.id if habilidad else None,
-            )
         if habilidad:
-            dano_tras_defensa = calcular_dano_habilidad(
-                dano_base=3,
-                dano_arma=obtener_dano_arma(self.enemigo_actual.arma, self.rng),
-                habilidad=habilidad,
-                nivel_habilidad=self.enemigo_actual.nivel_habilidad(habilidad_id),
-                valor_atributo=getattr(
-                    self.enemigo_actual, habilidad.atributo_escalado
-                ),
-                defensa_objetivo=armadura_tras_penetracion(self.enemigo_actual, defensa),
-                fuerza=self.enemigo_actual.fuerza,
+            bruto = calcular_dano_habilidad(
+                dano_base=self.enemigo_actual.calcular_dano_base(), dano_arma=obtener_dano_arma(self.enemigo_actual.arma, self.rng),
+                habilidad=habilidad, nivel_habilidad=self.enemigo_actual.nivel_habilidad(habilidad_id),
+                valor_atributo=getattr(self.enemigo_actual, habilidad.atributo_escalado),
+                defensa_objetivo=0, solo_bruto=True, fuerza=self.enemigo_actual.fuerza,
                 escalado_arma=item_factory.crear(self.enemigo_actual.arma).coeficiente_fuerza,
-                constitucion_objetivo=self.jugador.constitucion_total,
-                bloqueo_escudo=porcentaje_bloqueado,
-            )
+                constitucion_objetivo=self.jugador.constitucion_total)
         else:
-            dano_tras_defensa = max(
-                1,
-                round(
-                    aplicar_mitigacion_dano(
-                        self.enemigo_dano,
-                        bloqueo_escudo=porcentaje_bloqueado,
-                        armadura=armadura_tras_penetracion(self.enemigo_actual, defensa),
-                    )
-                ),
-            )
+            bruto = self.enemigo_dano
+        defensa_golpe = self._defensa_del_golpe(self.enemigo_actual, self.jugador, bruto,
+            defendiendo=self.is_defending, rapido=self.intencion == "rápido" or getattr(habilidad, "rapido", False),
+            poderoso=self.intencion == "poderoso", ataque=habilidad)
+        bloqueo_exitoso = defensa_golpe["absorbido"] > 0
+        defensa = self._defensa_total_jugador() + defensa_extra
+        dano_tras_defensa = aplicar_mitigacion_dano(defensa_golpe["dano"],
+            armadura=armadura_tras_penetracion(self.enemigo_actual, defensa))
         reduccion = 0
         for efecto_id, turnos in self.efectos_habilidades.items():
             if turnos <= 0:
@@ -978,7 +876,7 @@ class MotorJuego:
                 self.jugador.inventario.secundario_equipado,
             )
         reduccion = min(0.90, reduccion)
-        recibido = max(1, round(dano_tras_defensa * (1 - reduccion)))
+        recibido = max(0, round(dano_tras_defensa * (1 - reduccion)))
         self.jugador.hp -= recibido
         self._emitir_evento(
             "dano",
@@ -1104,6 +1002,7 @@ class MotorJuego:
             self.jugador.velocidad,
             self.enemigo_actual.velocidad,
             ataque_enemigo_rapido=self.intencion == "rápido",
+            ataque_enemigo_poderoso=self.intencion == "poderoso",
             ultimo_actor=self.ultimo_actor,
             acumuladores=self.acumuladores_velocidad,
         )
@@ -1142,6 +1041,7 @@ class MotorJuego:
                 if self.aturdimiento_jugador:
                     self.aturdimiento_jugador -= 1
                     self.is_defending = False
+                    self.contraataque_disponible = False
                     self._registrar_evento(
                         "aturdimiento",
                         "Estás aturdido y pierdes esta acción.",
@@ -1161,6 +1061,7 @@ class MotorJuego:
                         raise ErrorJuego(str(error)) from error
                     item_usado = True
                     self.is_defending = False
+                    self.contraataque_disponible = False
                     self._registrar(
                         f"Usas {item.nombre} y recuperas {recuperado} de vida."
                     )

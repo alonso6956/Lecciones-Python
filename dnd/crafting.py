@@ -60,10 +60,14 @@ def _disenar_arma(tier, tipo, material, componente, perfil, calidad="comun"):
     sesgo_dano = distribucion[0] / plantilla["distribucion"][0]
     limite = DANO_TIER[tier][1] * MULTIPLICADOR_ARMA[tipo]
     dano = min(math.floor(limite), max(1, round(valor_calidad(DANO_TIER[tier], calidad) * MULTIPLICADOR_ARMA[tipo] * sesgo_dano)))
+    # La calidad fija el centro del rango; cada golpe tira entre sus extremos.
+    # Un punto mínimo de amplitud evita rangos constantes por redondeo en Tier I.
+    amplitud = max(1, round(dano * .10))
+    ataque = [max(1, dano - amplitud), min(math.floor(limite), dano + amplitud)]
     arma = asdict(item_factory.crear(plantilla["base"]))
     arma.update(id="", nombre=f"{plantilla['nombre']} de {metal['nombre']} ({NOMBRES_CALIDAD[calidad]})",
                 precio=valor_fabricacion(plantilla["base"], tier), tipo_arma=tipo, tier=tier, inicial=False,
-                requisitos=dict(REQUISITOS[tipo][tier - 1]), ataque=[dano, dano],
+                requisitos=dict(REQUISITOS[tipo][tier - 1]), ataque=ataque,
                 dos_manos=tipo in {"maza", "lanza"}, dual_wield=tipo == "daga",
                 secundaria_permitida=tipo not in {"maza", "lanza"},
                 peso=metal["peso"], durabilidad=metal["durabilidad"],
@@ -98,6 +102,10 @@ def _disenar_proteccion(tier, plantilla, material, perfil, calidad="comun"):
         pieza.update(calidad=calidad, version_diseno=2,
                      nombre=f"{plantilla['nombre']} de {metal['nombre']} ({NOMBRES_CALIDAD[calidad]})")
     else:
+        pieza.update(calidad=calidad, version_diseno=2,
+                     nombre=f"{plantilla['nombre']} de {metal['nombre']} ({NOMBRES_CALIDAD[calidad]})")
+        pieza["absorcion_pasiva"] = round(min(.30, .10 * poder), 4)
+        pieza["bloqueo_activo"] = round(min(.90, .60 * poder), 4)
         pieza["probabilidad_bloqueo"] = round(min(balance["bloqueo_maximo"], pieza["probabilidad_bloqueo"] * poder), 4)
         pieza["porcentaje_dano_bloqueado"] = round(min(balance["reduccion_maxima"], pieza["porcentaje_dano_bloqueado"] * poder), 4)
     return pieza
@@ -141,7 +149,7 @@ def previsualizar_arma(personaje, tipo, material, componente=None, vault=None):
             "calidades": [NOMBRES_CALIDAD[c] for c in CALIDADES] if arma.get("version_diseno") == 2 else [],
             "afijos_maximos": personaje.crafting_tier, "afijos": arma.get("afijos", []),
             "rangos": {k: [min(a[k] for a in variantes), max(a[k] for a in variantes)]
-                       for k in ("velocidad", "critico", "penetracion", "defensa", "probabilidad_bloqueo", "porcentaje_dano_bloqueado", "peso", "durabilidad") if k in arma},
+                       for k in ("velocidad", "critico", "penetracion", "defensa", "absorcion_pasiva", "bloqueo_activo", "peso", "durabilidad") if k in arma},
             "durabilidad": arma["durabilidad"], "peso": arma["peso"],
             "requisitos": arma["requisitos"], "afijo": arma.get("afijo", {}), "recursos": recursos,
             "valor_mercado": arma["precio"], "precio_venta": arma["precio"] // 2,

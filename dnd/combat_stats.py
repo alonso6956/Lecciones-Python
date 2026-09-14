@@ -32,12 +32,19 @@ def dano_con_arma(modelo, arma, valor):
 
 def tirar_dano(modelo, rng, arma=None):
     arma = arma or arma_de(modelo)
+    inventario = getattr(modelo, "inventario", None)
+    if inventario:
+        from defense_system import identidad_equipada
+        slot = "mano_principal" if arma.id == inventario.arma_equipada.id else "mano_secundaria"
+        identidad = identidad_equipada(inventario, slot)
+        if identidad and inventario.estado_durabilidad(identidad)["roto"]:
+            return modelo.calcular_dano_base()
     return dano_con_arma(modelo, arma, rng.randint(*arma.ataque))
 
 
 def estadisticas_combate(modelo):
     jugador = hasattr(modelo, "inventario")
-    arma = item_factory.crear(modelo.arma)
+    arma = arma_de(modelo)
     base = modelo.calcular_dano_base()
     defensa = defensa_total(modelo)
     secundario = (modelo.inventario.secundario_equipado if jugador else
@@ -67,7 +74,17 @@ def estadisticas_combate(modelo):
         "probabilidad_bloqueo": getattr(secundario, "probabilidad_bloqueo", 0),
         "porcentaje_dano_bloqueado": getattr(secundario, "porcentaje_dano_bloqueado", 0),
     }
+    from defense_system import escudo_de, durabilidad_escudo
+    escudo = escudo_de(modelo)
+    datos.update(absorcion_pasiva=escudo.absorcion_pasiva if escudo else 0,
+                 bloqueo_activo=escudo.bloqueo_activo if escudo else 0,
+                 durabilidad_escudo=durabilidad_escudo(modelo),
+                 durabilidad_maxima_escudo=escudo.durabilidad if escudo else 0)
     if jugador:
+        from defense_system import identidad_equipada
+        integridad = modelo.inventario.estado_durabilidad(identidad_equipada(modelo.inventario, "mano_principal"))
+        datos.update(durabilidad_arma=integridad["durabilidad_actual"],
+                     durabilidad_maxima_arma=integridad["durabilidad_maxima"])
         datos.update(energia_maxima=modelo.energia_maxima,
                      carga_categoria=modelo.penalizaciones_peso["categoria"],
                      carga_relativa=modelo.penalizaciones_peso["relativa"],
