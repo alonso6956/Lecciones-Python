@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "00 - Indices/09 - Sistemas/Ataques rápidos.md",
+                "file": "00 - Indices/09 - Sistemas/Salud.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Ataques rápidos"
+              "title": "Salud"
             }
           }
         ]
@@ -188,18 +188,13 @@
       "bases:Crear nueva base": false
     }
   },
-  "active": "f542fe65deb2e4e6",
+  "active": "169a50eba5ac5466",
   "lastOpenFiles": [
-    "00 - Indices/09 - Sistemas/Ataques poderosos.md",
-    "00 - Indices/09 - Sistemas/Armadura.md",
-    "00 - Indices/09 - Sistemas/Ataques rápidos.md",
-    "00 - Indices/09 - Sistemas/Reparación.md",
-    "00 - Indices/07 - Armas/Escudo.md",
-    "00 - Indices/09 - Sistemas/Capacidad de carga.md",
-    "00 - Indices/07 - Armas",
     "00 - Indices/09 - Sistemas/Sistema de Parada.md",
-    "00 - Indices/11 - Efectos/Ruptura de guardia.md",
-    "00 - Indices/09 - Sistemas/Salud.md",
+    "00 - Indices/09 - Sistemas/Reparación.md",
+    "00 - Indices/09 - Sistemas/Ataques rápidos.md",
+    "00 - Indices/09 - Sistemas/Ataques poderosos.md",
+    "00 - Indices/07 - Armas/Escudo.md",
     "00 - Indices/01 - Clases/Sombra.md",
     "00 - Indices/01 - Clases/Verdugo de Cuerdas.md",
     "00 - Indices/01 - Clases/Rompemuros.md",
@@ -209,6 +204,7 @@
     "00 - Indices/01 - Clases/Cazarrecompensas.md",
     "00 - Indices/09 - Sistemas/Crafteo.md",
     "Precisión.md",
+    "00 - Indices/09 - Sistemas/Salud.md",
     "00 - Indices/04 - Pasivas/Quemadura.md"
   ]
 }
